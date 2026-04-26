@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Cost Centre Hierarchy Comparison</title>
+  <link rel="stylesheet" href="styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <h1>Cost Centre Hierarchy Comparison</h1>
+    <div class="dropzones">
+      <label class="dropzone" data-slot="A">
+        <span class="label">Hierarchy A (baseline)</span>
+        <span class="filename" data-filename></span>
+        <span class="format-badge" data-format></span>
+        <input type="file" accept=".csv" hidden />
+      </label>
+      <label class="dropzone" data-slot="B">
+        <span class="label">Hierarchy B (new)</span>
+        <span class="filename" data-filename></span>
+        <span class="format-badge" data-format></span>
+        <input type="file" accept=".csv" hidden />
+      </label>
+      <label class="dropzone" data-slot="master">
+        <span class="label">Master cost-centre list</span>
+        <span class="filename" data-filename></span>
+        <span class="format-badge" data-format></span>
+        <input type="file" accept=".csv" hidden />
+      </label>
+      <button id="loadSamples" class="btn">Load samples</button>
+      <button id="clearAll" class="btn btn-secondary">Clear</button>
+    </div>
+  </header>
+
+  <section class="tiles" id="tiles">
+    <button class="tile" data-filter="newCC"><span class="count" id="count-newCC">0</span><span>New cost centres</span></button>
+    <button class="tile" data-filter="amendedCC"><span class="count" id="count-amendedCC">0</span><span>Amended cost centres</span></button>
+    <button class="tile" data-filter="newNodes"><span class="count" id="count-newNodes">0</span><span>New nodes</span></button>
+    <button class="tile" data-filter="amendedNodes"><span class="count" id="count-amendedNodes">0</span><span>Amended nodes</span></button>
+    <button class="tile" data-filter="deletedNodes"><span class="count" id="count-deletedNodes">0</span><span>Deleted nodes</span></button>
+    <button class="tile" data-filter="duplicates"><span class="count" id="count-duplicates">0</span><span>Duplicates</span></button>
+    <button class="tile" data-filter="missing"><span class="count" id="count-missing">0</span><span>Missing</span></button>
+    <button class="tile" data-filter="invalid"><span class="count" id="count-invalid">0</span><span>Invalid</span></button>
+  </section>
+
+  <main class="main-grid">
+    <section class="pane">
+      <header class="pane-header">
+        <h2>Hierarchy A</h2>
+        <span class="muted" id="meta-A"></span>
+      </header>
+      <div class="tree" id="tree-A" data-readonly></div>
+    </section>
+
+    <section class="pane">
+      <header class="pane-header">
+        <h2>Hierarchy B</h2>
+        <span class="muted" id="meta-B"></span>
+      </header>
+      <div class="tree" id="tree-B" data-readonly></div>
+    </section>
+
+    <section class="pane editable">
+      <header class="pane-header">
+        <h2>Working hierarchy <small class="muted">(editable, defaults to B)</small></h2>
+        <div class="pane-actions">
+          <button class="btn btn-small" id="addRoot">+ Add root node</button>
+          <button class="btn btn-small" id="resetWorking">Reset to B</button>
+          <button class="btn btn-small" id="undo" disabled>Undo</button>
+        </div>
+      </header>
+      <div class="tree editable-tree" id="tree-working"></div>
+    </section>
+
+    <aside class="pane sidebar">
+      <nav class="tabs" id="tabs">
+        <button class="tab active" data-tab="changes">Changes</button>
+        <button class="tab" data-tab="duplicates">Duplicates</button>
+        <button class="tab" data-tab="missing">Missing</button>
+        <button class="tab" data-tab="invalid">Invalid</button>
+        <button class="tab" data-tab="recommendations">Recommendations</button>
+      </nav>
+      <div class="tab-panels">
+        <div class="tab-panel active" data-panel="changes" id="panel-changes"></div>
+        <div class="tab-panel" data-panel="duplicates" id="panel-duplicates"></div>
+        <div class="tab-panel" data-panel="missing" id="panel-missing"></div>
+        <div class="tab-panel" data-panel="invalid" id="panel-invalid"></div>
+        <div class="tab-panel" data-panel="recommendations" id="panel-recommendations"></div>
+      </div>
+    </aside>
+  </main>
+
+  <footer class="footer">
+    <div class="export-row">
+      <button class="btn btn-primary" id="exportZip">Download all as ZIP</button>
+      <button class="btn" data-export="new_cost_centres">new_cost_centres.csv</button>
+      <button class="btn" data-export="amended_cost_centres">amended_cost_centres.csv</button>
+      <button class="btn" data-export="new_nodes">new_nodes.csv</button>
+      <button class="btn" data-export="amended_nodes">amended_nodes.csv</button>
+      <button class="btn" data-export="deleted_nodes">deleted_nodes.csv</button>
+      <button class="btn" data-export="duplicates">duplicates.csv</button>
+      <button class="btn" data-export="missing">missing.csv</button>
+      <button class="btn" data-export="invalid">invalid.csv</button>
+      <button class="btn" data-export="working_hierarchy">working_hierarchy.csv</button>
+    </div>
+    <div class="status" id="status">Drop the three CSVs above to begin, or click <em>Load samples</em>.</div>
+  </footer>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>

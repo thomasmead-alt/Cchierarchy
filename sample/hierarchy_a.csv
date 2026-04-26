@@ -1,0 +1,13 @@
+Level1,Level2,Level3,Code,Name
+Group,Operations,Manufacturing,CC100,Plant A
+Group,Operations,Manufacturing,CC101,Plant B
+Group,Operations,Logistics,CC102,Warehouse North
+Group,Operations,Logistics,CC103,Warehouse South
+Group,Sales,Domestic,CC200,Direct Sales UK
+Group,Sales,Domestic,CC201,Retail UK
+Group,Sales,International,CC202,EU Sales
+Group,Support,IT,CC300,IT Helpdesk
+Group,Support,HR,CC301,IT Infrastructure
+Group,Support,HR,CC302,HR Operations
+Group,Support,Finance,CC303,Finance Ops
+Group,Support,Finance,CC304,Treasury

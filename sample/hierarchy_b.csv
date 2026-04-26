@@ -1,0 +1,27 @@
+Code,Name,ParentCode
+ROOT,Group,
+OPS,Operations,ROOT
+MFG,Manufacturing,OPS
+LOG,Logistics,OPS
+SAL,Sales,ROOT
+DOM,Domestic,SAL
+INT,International,SAL
+SUP,Support,ROOT
+IT,IT,SUP
+HR,HR,SUP
+FIN,Finance,SUP
+DIG,Digital,SAL
+CC100,Plant A (renamed),MFG
+CC101,Plant B,MFG
+CC102,Warehouse North,LOG
+CC200,Direct Sales UK,DOM
+CC201,Retail UK,DOM
+CC202,EU Sales,INT
+CC203,APAC Sales,INT
+CC300,IT Helpdesk,IT
+CC301,IT Infrastructure,IT
+CC302,HR Operations,HR
+CC303,Finance Ops,FIN
+CC304,Treasury,FIN
+CC400,Web Platform,DIG
+CC401,Data Analytics,DIG

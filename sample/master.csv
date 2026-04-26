@@ -1,0 +1,17 @@
+Code,Name,ResponsiblePerson
+CC100,Plant A,Alice Operations
+CC101,Plant B,Alice Operations
+CC102,Warehouse North,Alice Operations
+CC103,Warehouse South,Alice Operations
+CC200,Direct Sales UK,Bob Sales
+CC201,Retail UK,Bob Sales
+CC202,EU Sales,Bob Sales
+CC203,APAC Sales,Bob Sales
+CC300,IT Helpdesk,Carol IT
+CC301,IT Infrastructure,Carol IT
+CC302,HR Operations,Dave HR
+CC303,Finance Ops,Eve Finance
+CC304,Treasury,Eve Finance
+CC400,Web Platform,Frank Digital
+CC401,Data Analytics,Frank Digital
+CC500,Investor Relations,Eve Finance
