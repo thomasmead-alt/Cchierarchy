@@ -21,9 +21,17 @@ const state = {
   working: null,
   workingHistory: [],
   filter: null,
-  activeTab: 'changes',
+  activeTab: 'duplicates',
+  activeView: 'imports',
   report: null,
   recommendations: [],
+};
+
+const VIEW_TITLES = {
+  imports: 'Imports',
+  dashboard: 'Compare',
+  hierarchy: 'Hierarchy',
+  reports: 'Reports',
 };
 
 const $ = (sel) => document.querySelector(sel);
@@ -33,6 +41,20 @@ function setStatus(msg, kind = '') {
   const s = $('#status');
   s.className = 'status' + (kind ? ' ' + kind : '');
   s.innerHTML = msg;
+  const pill = $('#status-pill');
+  if (pill) {
+    if (kind === 'error') { pill.textContent = 'Error'; pill.className = 'status-pill error'; }
+    else if (kind === 'ok') { pill.textContent = 'Ready'; pill.className = 'status-pill'; }
+    else { pill.textContent = state.report ? 'Ready' : 'Idle'; pill.className = 'status-pill' + (state.report ? '' : ' idle'); }
+  }
+}
+
+function setView(name) {
+  state.activeView = name;
+  $$('.rail-item[data-view]').forEach((i) => i.classList.toggle('active', i.dataset.view === name));
+  $$('.view').forEach((v) => v.classList.toggle('active', v.dataset.view === name));
+  const crumb = $('#topbar-view');
+  if (crumb) crumb.textContent = VIEW_TITLES[name] || name;
 }
 
 function pushHistory() {
@@ -116,6 +138,10 @@ function recompute() {
   for (const k of Object.keys(counts)) {
     const e = document.getElementById('count-' + k);
     if (e) e.textContent = counts[k];
+    const tabct = document.getElementById('tabct-' + k);
+    if (tabct) tabct.textContent = counts[k];
+    const expct = document.getElementById('expct-' + k);
+    if (expct) expct.textContent = counts[k];
   }
 
   // Build per-tree highlight maps so diff highlights show on the trees
@@ -422,14 +448,12 @@ function resolveDuplicate(code, keepSource, keepPath) {
 function setFilter(f) {
   state.filter = state.filter === f ? null : f;
   $$('.tile').forEach((t) => t.classList.toggle('active', t.dataset.filter === state.filter));
-  // Map filter to which tab to focus
-  const tabFor = {
-    duplicates: 'duplicates',
-    missing: 'missing',
-    invalid: 'invalid',
-  };
-  const tab = tabFor[state.filter] || 'changes';
-  setActiveTab(tab);
+  // Quality tiles jump to the Reports view and select the matching tab.
+  const tabFor = { duplicates: 'duplicates', missing: 'missing', invalid: 'invalid' };
+  if (state.filter && tabFor[state.filter]) {
+    setView('reports');
+    setActiveTab(tabFor[state.filter]);
+  }
   renderSidebar();
 }
 
@@ -598,12 +622,20 @@ async function loadSamples() {
   await loadSlot('A', make('hierarchy_a.csv', SAMPLES.hierarchy_a_csv));
   await loadSlot('B', make('hierarchy_b.csv', SAMPLES.hierarchy_b_csv));
   await loadSlot('master', make('master.csv', SAMPLES.master_csv));
-  setStatus('Loaded sample CSVs. Tweak the working hierarchy or download CRUD files.', 'ok');
+  setStatus('Loaded sample CSVs. Switching to Compare view.', 'ok');
+  setView('dashboard');
 }
 
 // ---------- Init ----------
 
+function wireRail() {
+  $$('.rail-item[data-view]').forEach((btn) => {
+    btn.addEventListener('click', () => setView(btn.dataset.view));
+  });
+}
+
 function init() {
+  wireRail();
   wireDropzones();
   wireTabs();
   wireTiles();
@@ -611,6 +643,7 @@ function init() {
   wireWorkingActions();
   $('#loadSamples').addEventListener('click', loadSamples);
   $('#clearAll').addEventListener('click', clearAll);
+  setView('imports');
   recompute();
 }
 
