@@ -548,7 +548,9 @@ function wireWorkingActions() {
   });
   $('#undo').addEventListener('click', undo);
 
-  document.querySelectorAll('.tab-panels').forEach((p) => p.addEventListener('click', handleSidebarClick));
+  // Event delegation for action buttons rendered into any panel
+  // (Changes / Duplicates / Missing / Invalid / Recommendations).
+  document.body.addEventListener('click', handleSidebarClick);
 }
 
 // ---------- Sample data ----------
