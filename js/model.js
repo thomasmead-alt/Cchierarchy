@@ -5,16 +5,16 @@
 // both source files (and we may temporarily allow duplicates while resolving).
 
 let _counter = 0;
-export function genId(prefix = 'n') {
+function genId(prefix = 'n') {
   _counter += 1;
   return `${prefix}_${_counter.toString(36)}`;
 }
 
-export function newTree() {
+function newTree() {
   return { nodes: new Map(), rootIds: [] };
 }
 
-export function addNode(tree, partial) {
+function addNode(tree, partial) {
   const id = partial.id || genId();
   const node = {
     id,
@@ -29,17 +29,17 @@ export function addNode(tree, partial) {
   return node;
 }
 
-export function childrenOf(tree, parentId) {
+function childrenOf(tree, parentId) {
   const out = [];
   for (const n of tree.nodes.values()) if (n.parentId === parentId) out.push(n);
   return out;
 }
 
-export function rootNodes(tree) {
+function rootNodes(tree) {
   return tree.rootIds.map((id) => tree.nodes.get(id)).filter(Boolean);
 }
 
-export function walk(tree, visitor, parentId = null, depth = 0, path = []) {
+function walk(tree, visitor, parentId = null, depth = 0, path = []) {
   const list = parentId === null ? rootNodes(tree) : childrenOf(tree, parentId);
   for (const node of list) {
     const nextPath = [...path, node];
@@ -49,7 +49,7 @@ export function walk(tree, visitor, parentId = null, depth = 0, path = []) {
 }
 
 // path of names from root to node (inclusive)
-export function pathOf(tree, node) {
+function pathOf(tree, node) {
   const out = [];
   let cur = node;
   while (cur) {
@@ -59,11 +59,11 @@ export function pathOf(tree, node) {
   return out;
 }
 
-export function pathString(tree, node) {
+function pathString(tree, node) {
   return pathOf(tree, node).map((n) => n.name || n.code).join(' / ');
 }
 
-export function moveNode(tree, nodeId, newParentId) {
+function moveNode(tree, nodeId, newParentId) {
   const node = tree.nodes.get(nodeId);
   if (!node) return;
   // detach from current
@@ -87,7 +87,7 @@ export function moveNode(tree, nodeId, newParentId) {
   }
 }
 
-export function deleteNode(tree, nodeId) {
+function deleteNode(tree, nodeId) {
   const node = tree.nodes.get(nodeId);
   if (!node) return;
   // recursively delete children
@@ -96,7 +96,7 @@ export function deleteNode(tree, nodeId) {
   tree.rootIds = tree.rootIds.filter((id) => id !== nodeId);
 }
 
-export function cloneTree(tree) {
+function cloneTree(tree) {
   const out = newTree();
   for (const n of tree.nodes.values()) out.nodes.set(n.id, { ...n });
   out.rootIds = [...tree.rootIds];
@@ -104,7 +104,7 @@ export function cloneTree(tree) {
 }
 
 // Flatten leaves with their root-to-leaf path of node names.
-export function flattenLeaves(tree) {
+function flattenLeaves(tree) {
   const out = [];
   walk(tree, (node, _depth, path) => {
     if (node.kind === 'leaf') {
@@ -121,7 +121,7 @@ export function flattenLeaves(tree) {
 }
 
 // Flatten parent (non-leaf) nodes
-export function flattenParents(tree) {
+function flattenParents(tree) {
   const out = [];
   walk(tree, (node, _depth, path) => {
     if (node.kind === 'parent') {
@@ -138,7 +138,7 @@ export function flattenParents(tree) {
 }
 
 // Find a node by exact code (returns first match).
-export function findByCode(tree, code) {
+function findByCode(tree, code) {
   if (!code) return null;
   for (const n of tree.nodes.values()) if (n.code === code) return n;
   return null;

@@ -2,14 +2,6 @@
 // working hierarchy). Editable mode supports drag-and-drop reparenting via
 // SortableJS, inline rename of code/name, add and delete nodes.
 
-import {
-  childrenOf,
-  rootNodes,
-  moveNode,
-  deleteNode,
-  addNode,
-  genId,
-} from './model.js';
 
 function el(tag, attrs = {}, children = []) {
   const node = document.createElement(tag);
@@ -27,7 +19,7 @@ function el(tag, attrs = {}, children = []) {
 }
 
 // flags: { highlights: Map<nodeId, 'new'|'amended'|'deleted'|'duplicate'|'invalid'|'recommended'> }
-export function renderTree(container, tree, opts = {}) {
+function renderTree(container, tree, opts = {}) {
   const { editable = false, highlights = new Map(), onChange = () => {} } = opts;
   container.innerHTML = '';
   if (!tree || tree.nodes.size === 0) {

@@ -1,17 +1,10 @@
 // App bootstrap. Wires together CSV import → tree build → diff → render.
 
-import { parseFile, parseHierarchy, parseMaster, detectFormat } from './csv.js';
-import { newTree, cloneTree, addNode, genId, walk, findByCode, moveNode, deleteNode } from './model.js';
-import { compare, summarise } from './diff.js';
-import { suggest } from './recommend.js';
-import { renderTree } from './editor.js';
-import {
-  buildAllCsvs,
-  buildCsv,
-  buildWorkingHierarchyCsv,
-  downloadString,
-  downloadZip,
-} from './export.js';
+
+
+
+
+
 
 const state = {
   raw: { A: null, B: null, master: null },
@@ -649,4 +642,11 @@ function init() {
   recompute();
 }
 
-document.addEventListener('DOMContentLoaded', init);
+// Module scripts execute after the DOM is parsed, but in some load paths
+// DOMContentLoaded has already fired by the time we get here. Run init now
+// if the document is already past 'loading'; otherwise wait for the event.
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', init);
+} else {
+  init();
+}

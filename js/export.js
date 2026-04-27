@@ -1,7 +1,6 @@
 // Build CSV files from the comparison report and trigger downloads.
 
-import { toCsv } from './csv.js';
-import { walk, pathString } from './model.js';
+
 
 const FILES = {
   new_cost_centres: {
@@ -46,17 +45,17 @@ const FILES = {
   },
 };
 
-export function fileNames() {
+function fileNames() {
   return Object.keys(FILES);
 }
 
-export function buildCsv(name, report) {
+function buildCsv(name, report) {
   const spec = FILES[name];
   if (!spec) return '';
   return toCsv(spec.rows(report), spec.headers);
 }
 
-export function buildAllCsvs(report) {
+function buildAllCsvs(report) {
   const out = {};
   for (const name of Object.keys(FILES)) {
     out[`${name}.csv`] = buildCsv(name, report);
@@ -65,7 +64,7 @@ export function buildAllCsvs(report) {
 }
 
 // Working hierarchy export: parent/child format, every node a row.
-export function buildWorkingHierarchyCsv(tree) {
+function buildWorkingHierarchyCsv(tree) {
   const rows = [];
   walk(tree, (node) => {
     const parent = node.parentId ? tree.nodes.get(node.parentId) : null;
@@ -81,7 +80,7 @@ export function buildWorkingHierarchyCsv(tree) {
   return toCsv(rows, ['Code', 'Name', 'ParentCode', 'ParentPath', 'Kind', 'Source']);
 }
 
-export function downloadString(filename, contents, mime = 'text/csv;charset=utf-8') {
+function downloadString(filename, contents, mime = 'text/csv;charset=utf-8') {
   const blob = new Blob([contents], { type: mime });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -93,7 +92,7 @@ export function downloadString(filename, contents, mime = 'text/csv;charset=utf-
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-export async function downloadZip(filename, files) {
+async function downloadZip(filename, files) {
   const zip = new JSZip();
   for (const [name, body] of Object.entries(files)) zip.file(name, body);
   const blob = await zip.generateAsync({ type: 'blob' });

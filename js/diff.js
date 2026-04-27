@@ -6,7 +6,6 @@
 //   parent nodes don't always have codes (level-column files), so we use
 //   their slash-delimited path-from-root as the key.
 
-import { walk, flattenLeaves, flattenParents, pathString } from './model.js';
 
 const norm = (s) => (s == null ? '' : String(s).trim());
 
@@ -58,7 +57,7 @@ function allLeafOccurrences(tree, label) {
   return out;
 }
 
-export function compare(treeA, treeB, masterRecords = []) {
+function compare(treeA, treeB, masterRecords = []) {
   const masterByCode = new Map();
   for (const r of masterRecords) masterByCode.set(r.code, r);
 
@@ -261,7 +260,7 @@ export function compare(treeA, treeB, masterRecords = []) {
   };
 }
 
-export function summarise(report) {
+function summarise(report) {
   return {
     newCC: report.newCC.length,
     amendedCC: report.amendedCC.length,

@@ -5,7 +5,6 @@
 // AND those cost centres are NOT already all siblings under a single parent
 // in the working tree.
 
-import { walk } from './model.js';
 
 const norm = (s) => (s == null ? '' : String(s).trim());
 
@@ -22,7 +21,7 @@ function buildLeafLookup(workingTree) {
   return out;
 }
 
-export function suggest(masterRecords, workingTree) {
+function suggest(masterRecords, workingTree) {
   const groups = new Map(); // person -> [masterRecord]
   for (const r of masterRecords) {
     const person = norm(r.responsiblePerson);
