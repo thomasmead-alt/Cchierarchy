@@ -1,0 +1,13 @@
+Level1,Level2,Code,Name
+Group,Sales,S001,Northern Sales Region
+Group,Sales,S002,Southern Sales Region
+Group,Sales,S003,Eastern Sales Region
+Group,Sales,S004,Western Sales Region
+Group,Operations,O001,Supply Chain and Logistics
+Group,Operations,O002,Production
+Group,Operations,O003,Quality Control
+Group,Operations,O004,Maintenance and Repairs
+Group,Support,T001,IT Service Desk
+Group,Support,T002,People Operations
+Group,Support,T003,Finance
+Group,Support,T004,Legal and Compliance

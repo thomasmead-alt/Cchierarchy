@@ -1,0 +1,75 @@
+Level1,Level2,Level3,Level4,Code,Name
+ACME,Operations,Manufacturing,Plant North,CC1001,Press Hall
+ACME,Operations,Manufacturing,Plant North,CC1002,Paint Shop
+ACME,Operations,Manufacturing,Plant North,CC1003,Final Assembly
+ACME,Operations,Manufacturing,Plant North,CC1004,Tooling
+ACME,Operations,Manufacturing,Plant North,CC1005,Plant North Admin
+ACME,Operations,Manufacturing,Plant South,CC1010,Stamping
+ACME,Operations,Manufacturing,Plant South,CC1011,Welding
+ACME,Operations,Manufacturing,Plant South,CC1012,Body Shop
+ACME,Operations,Manufacturing,Plant South,CC1013,Plant South Admin
+ACME,Operations,Manufacturing,Quality,CC1020,Inbound QA
+ACME,Operations,Manufacturing,Quality,CC1021,Process QA
+ACME,Operations,Manufacturing,Quality,CC1022,Outbound QA
+ACME,Operations,Logistics,Warehouse,CC1030,Warehouse North
+ACME,Operations,Logistics,Warehouse,CC1031,Warehouse South
+ACME,Operations,Logistics,Warehouse,CC1032,Warehouse Central
+ACME,Operations,Logistics,Warehouse,CC1033,Warehouse Returns
+ACME,Operations,Logistics,Fleet,CC1040,Fleet Trucks
+ACME,Operations,Logistics,Fleet,CC1041,Fleet Vans
+ACME,Operations,Logistics,Fleet,CC1042,Fleet Maintenance
+ACME,Operations,Procurement,,CC1050,Direct Materials
+ACME,Operations,Procurement,,CC1051,Indirect Materials
+ACME,Operations,Procurement,,CC1052,Vendor Management
+ACME,Sales,Domestic,Direct,CC2001,Direct Sales North
+ACME,Sales,Domestic,Direct,CC2002,Direct Sales South
+ACME,Sales,Domestic,Direct,CC2003,Direct Sales Online
+ACME,Sales,Domestic,Retail,CC2010,Retail Flagship
+ACME,Sales,Domestic,Retail,CC2011,Retail Outlets
+ACME,Sales,Domestic,Retail,CC2012,Retail Pop-up
+ACME,Sales,International,EMEA,CC2020,UK Sales
+ACME,Sales,International,EMEA,CC2021,Germany Sales
+ACME,Sales,International,EMEA,CC2022,France Sales
+ACME,Sales,International,EMEA,CC2023,Nordics Sales
+ACME,Sales,International,APAC,CC2030,Japan Sales
+ACME,Sales,International,APAC,CC2031,China Sales
+ACME,Sales,International,APAC,CC2032,Australia Sales
+ACME,Sales,International,APAC,CC2033,SEA Sales
+ACME,Sales,International,Americas,CC2040,US Sales
+ACME,Sales,International,Americas,CC2041,Canada Sales
+ACME,Sales,International,Americas,CC2042,Mexico Sales
+ACME,Marketing,Brand,,CC3001,Brand Strategy
+ACME,Marketing,Brand,,CC3002,Brand Design
+ACME,Marketing,Brand,,CC3003,Brand Research
+ACME,Marketing,Digital,,CC3010,Digital Acquisition
+ACME,Marketing,Digital,,CC3011,Digital Content
+ACME,Marketing,Digital,,CC3012,Digital Analytics
+ACME,Marketing,Digital,,CC3013,Digital Ops
+ACME,Marketing,Events,,CC3020,Trade Shows
+ACME,Marketing,Events,,CC3021,Sponsorships
+ACME,Marketing,Events,,CC3022,Internal Events
+ACME,Support,IT,Helpdesk,CC4001,IT Helpdesk Tier 1
+ACME,Support,IT,Helpdesk,CC4002,IT Helpdesk Tier 2
+ACME,Support,IT,Helpdesk,CC4003,IT Helpdesk Mobile
+ACME,Support,IT,Infrastructure,CC4010,Networking
+ACME,Support,IT,Infrastructure,CC4011,Servers
+ACME,Support,IT,Infrastructure,CC4012,Cloud Platform
+ACME,Support,IT,Security,CC4020,Information Security
+ACME,Support,HR,,CC4030,HR Operations
+ACME,Support,HR,,CC4031,Talent Acquisition
+ACME,Support,HR,,CC4032,Learning and Development
+ACME,Support,Finance,Accounting,CC4040,Accounts Payable
+ACME,Support,Finance,Accounting,CC4041,Accounts Receivable
+ACME,Support,Finance,Accounting,CC4042,General Ledger
+ACME,Support,Finance,Treasury,CC4050,Treasury Operations
+ACME,Support,Finance,Audit,CC4060,Audit
+ACME,RnD,Hardware,,CC5001,Hardware Design
+ACME,RnD,Hardware,,CC5002,Prototyping
+ACME,RnD,Hardware,,CC5003,Hardware QA
+ACME,RnD,Software,,CC5010,Software Platform
+ACME,RnD,Software,,CC5011,Software Apps
+ACME,RnD,Software,,CC5012,Software DevOps
+ACME,RnD,Software,,CC5013,Software QA
+ACME,RnD,Innovation Lab,,CC5020,Innovation Research
+ACME,RnD,Innovation Lab,,CC5021,Innovation Prototypes
+ACME,RnD,Innovation Lab,,CC5022,Innovation Partnerships

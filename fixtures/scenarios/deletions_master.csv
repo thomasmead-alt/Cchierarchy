@@ -1,0 +1,28 @@
+Code,Name,ResponsiblePerson
+D001,Plant North,Alice Operations
+D002,Plant South,Alice Operations
+D003,Plant East,Alice Operations
+D004,Plant West,Alice Operations
+D010,Warehouse,Alice Operations
+D011,Fleet,Alice Operations
+D012,Distribution,Alice Operations
+D020,Direct Materials,Alice Operations
+D021,Indirect Materials,Alice Operations
+D022,Vendor Management,Alice Operations
+D100,UK Sales,Bob Sales
+D101,US Sales,Bob Sales
+D110,APAC Sales,Bob Sales
+D111,EMEA Sales,Bob Sales
+D112,LATAM Sales,Bob Sales
+D200,Brand,Carol Marketing
+D210,Digital Acquisition,Carol Marketing
+D211,Digital Content,Carol Marketing
+D220,Trade Shows,Carol Marketing
+D221,Sponsorships,Carol Marketing
+D300,IT Helpdesk,Dave IT
+D301,IT Infrastructure,Dave IT
+D310,HR Operations,Eve HR
+D320,Accounting,Frank Finance
+D321,Treasury,Frank Finance
+D330,Legal Counsel,Helen Compliance
+D331,Compliance,Helen Compliance

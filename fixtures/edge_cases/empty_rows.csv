@@ -1,0 +1,10 @@
+Code,Name,ParentCode
+ROOT,Group,
+
+SAL,Sales,ROOT
+
+E001,Real CC,SAL
+,,
+E002,Another CC,SAL
+
+E003,Yet another,SAL

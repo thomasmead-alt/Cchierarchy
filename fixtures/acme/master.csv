@@ -1,0 +1,90 @@
+Code,Name,ResponsiblePerson
+CC1001,Press Hall,Alice Operations
+CC1002,Paint Shop,Alice Operations
+CC1003,Final Assembly,Alice Operations
+CC1004,Tooling,Alice Operations
+CC1005,Plant North Admin,Alice Operations
+CC1010,Stamping,Alice Operations
+CC1011,Welding,Alice Operations
+CC1012,Body Shop,Alice Operations
+CC1013,Plant South Admin,Alice Operations
+CC1020,Inbound QA,Helen Compliance
+CC1021,Process QA,Helen Compliance
+CC1022,Outbound QA,Helen Compliance
+CC1030,Warehouse North,Alice Operations
+CC1031,Warehouse South,Alice Operations
+CC1032,Warehouse Central,Alice Operations
+CC1033,Warehouse Returns,Alice Operations
+CC1040,Fleet Trucks,Alice Operations
+CC1041,Fleet Vans,Alice Operations
+CC1042,Fleet Maintenance,Alice Operations
+CC1050,Direct Materials,Alice Operations
+CC1051,Indirect Materials,Alice Operations
+CC1052,Vendor Management,Alice Operations
+CC2001,Direct Sales North,Bob Sales
+CC2002,Direct Sales South,Bob Sales
+CC2003,Direct Sales Online,Bob Sales
+CC2010,Retail Flagship,Bob Sales
+CC2011,Retail Outlets,Bob Sales
+CC2012,Retail Pop-up,Bob Sales
+CC2020,UK Sales,Bob Sales
+CC2021,Germany Sales,Bob Sales
+CC2022,France Sales,Bob Sales
+CC2023,Nordics Sales,Bob Sales
+CC2024,Iberia Sales,Bob Sales
+CC2030,Japan Sales,Bob Sales
+CC2031,China Sales,Bob Sales
+CC2032,Australia Sales,Bob Sales
+CC2033,SEA Sales,Bob Sales
+CC2034,India Sales,Bob Sales
+CC2040,US Sales,Bob Sales
+CC2041,Canada Sales,Bob Sales
+CC2042,Mexico Sales,Bob Sales
+CC2050,Brazil Sales,Bob Sales
+CC2051,Argentina Sales,Bob Sales
+CC3001,Brand Strategy,Carol Marketing
+CC3002,Brand Design,Carol Marketing
+CC3003,Brand Research,Carol Marketing
+CC3010,Digital Acquisition,Ian Digital
+CC3011,Digital Content,Ian Digital
+CC3012,Digital Analytics,Ian Digital
+CC3013,Digital Ops,Ian Digital
+CC3014,Marketing Automation,Ian Digital
+CC3020,Trade Shows,Carol Marketing
+CC3021,Sponsorships,Carol Marketing
+CC3022,Internal Events,Carol Marketing
+CC4001,IT Helpdesk Tier 1,Ian Digital
+CC4002,IT Helpdesk Tier 2,Ian Digital
+CC4003,IT Helpdesk Mobile,Ian Digital
+CC4010,Networking,Dave IT
+CC4011,Servers,Dave IT
+CC4012,Cloud Platform,Dave IT
+CC4020,Information Security,Helen Compliance
+CC4021,Identity and Access,Helen Compliance
+CC4030,HR Operations,Eve HR
+CC4031,Talent Acquisition,Eve HR
+CC4032,Learning and Development,Eve HR
+CC4040,Accounts Payable,Frank Finance
+CC4041,Accounts Receivable,Frank Finance
+CC4042,General Ledger,Frank Finance
+CC4050,Treasury Operations,Frank Finance
+CC4060,Internal Audit,Helen Compliance
+CC4070,Operational Risk,Frank Finance
+CC4071,Compliance,Helen Compliance
+CC5001,Hardware Design,Grace RnD
+CC5002,Prototyping,Grace RnD
+CC5003,Hardware QA,Grace RnD
+CC5010,Software Platform,Grace RnD
+CC5011,Software Apps,Grace RnD
+CC5012,Software DevOps,Grace RnD
+CC5013,Software QA,Grace RnD
+CC5020,Innovation Research,Grace RnD
+CC5021,Innovation Prototypes,Grace RnD
+CC5022,Innovation Partnerships,Grace RnD
+CC5030,Quantum Algorithms,Grace RnD
+CC5031,Quantum Hardware,Grace RnD
+CC5032,Quantum Simulation,Grace RnD
+CC5033,Quantum Partnerships,Grace RnD
+CC9001,CEO Office,John Executive
+CC9002,CFO Office,John Executive
+CC9003,Board of Directors,John Executive

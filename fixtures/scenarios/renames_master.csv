@@ -1,0 +1,13 @@
+Code,Name,ResponsiblePerson
+S001,Northern Sales Region,Bob Sales
+S002,Southern Sales Region,Bob Sales
+S003,Eastern Sales Region,Bob Sales
+S004,Western Sales Region,Bob Sales
+O001,Supply Chain and Logistics,Alice Operations
+O002,Production,Alice Operations
+O003,Quality Control,Helen Compliance
+O004,Maintenance and Repairs,Alice Operations
+T001,IT Service Desk,Dave IT
+T002,People Operations,Eve HR
+T003,Finance,Frank Finance
+T004,Legal and Compliance,Helen Compliance

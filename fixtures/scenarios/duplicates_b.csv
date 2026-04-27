@@ -1,0 +1,14 @@
+Code,Name,ParentCode
+GRP,Group,
+SAL,Sales,GRP
+OPS,Operations,GRP
+MKT,Marketing,GRP
+SUP,Support,GRP
+X01,Shared Cost Centre 1,SAL
+X02,Shared Cost Centre 2,OPS
+X03,Shared Cost Centre 3,MKT
+X04,Sales Only,SAL
+X05,Ops Only,OPS
+X06,Shared Cost Centre 6,SUP
+X07,Marketing Only,MKT
+X08,Support Only,SUP

@@ -1,0 +1,56 @@
+Code,Name,ResponsiblePerson
+G100,Cash Equities Trading,Sarah Trading
+G101,Cash Equities Sales,Sarah Trading
+G102,Program Trading,Sarah Trading
+G110,Listed Derivatives,Mike Derivatives
+G111,OTC Derivatives,Mike Derivatives
+G112,Synthetic Prime,Mike Derivatives
+G120,PB Sales,Sarah Trading
+G121,PB Financing,Sarah Trading
+G122,PB Operations,Sarah Trading
+G130,Rates Trading,Tom Rates
+G131,Rates Sales,Tom Rates
+G132,Rates Structuring,Tom Rates
+G140,Credit Trading,Lisa Credit
+G141,Credit Sales,Lisa Credit
+G142,Distressed Credit,Lisa Credit
+G150,FX Spot,Anna FX
+G151,FX Forwards,Anna FX
+G152,EM FX,Anna FX
+G160,M and A Advisory,David IB
+G161,M and A Restructuring,David IB
+G170,Equity Capital Markets,David IB
+G181,DCM Loans,David IB
+G190,Crypto Spot,Mia Digital
+G191,Crypto Derivatives,Mia Digital
+G192,Token Issuance,Mia Digital
+G200,Market Risk Equities,Robert Risk
+G201,Market Risk Rates,Robert Risk
+G202,Market Risk FX,Robert Risk
+G210,Counterparty Risk,Patricia Risk
+G211,Wholesale Credit Risk,Patricia Risk
+G220,Op Risk Reporting,Robert Risk
+G230,Regulatory Reporting,James Compliance
+G240,Audit Markets,James Compliance
+G241,Audit Functions,James Compliance
+G250,PC Equities,Anna FX
+G251,PC Fixed Income,Tom Rates
+G252,PC IB,David IB
+G300,Settlements Equities,Karen Operations
+G301,Settlements FI,Karen Operations
+G310,Cash Recs,Karen Operations
+G311,Securities Recs,Karen Operations
+G320,Corp Actions Equities,Karen Operations
+G322,ETF Servicing,Karen Operations
+G330,Front Office Tech,Brian Technology
+G331,Algo Tech,Brian Technology
+G332,Trading Surveillance Tech,Brian Technology
+G340,Market Risk Tech,Brian Technology
+G341,Credit Risk Tech,Brian Technology
+G350,Cloud Platform,Brian Technology
+G360,Financial Reporting,Olivia Finance
+G361,Management Reporting,Olivia Finance
+G362,Tax,Olivia Finance
+G363,Cost Allocation,Olivia Finance
+G999,CEO Office,CEO Globex
+G998,Investor Relations,Olivia Finance

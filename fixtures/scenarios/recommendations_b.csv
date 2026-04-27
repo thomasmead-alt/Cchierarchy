@@ -1,0 +1,20 @@
+Code,Name,ParentCode
+GRP,Group,
+SAL,Sales,GRP
+OPS,Operations,GRP
+MKT,Marketing,GRP
+SUP,Support,GRP
+FIN,Finance,GRP
+LGL,Legal,GRP
+R001,UK Sales,SAL
+R002,US Sales,SAL
+R003,UK Operations,OPS
+R004,US Operations,OPS
+R005,UK Marketing,MKT
+R006,US Marketing,MKT
+R007,UK IT,SUP
+R008,US IT,SUP
+R009,UK Finance,FIN
+R010,US Finance,FIN
+R011,UK Legal,LGL
+R012,US Legal,LGL

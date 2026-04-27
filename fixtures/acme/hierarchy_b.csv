@@ -1,0 +1,121 @@
+Code,Name,ParentCode
+ACME,ACME,
+OPS,Operations,ACME
+MFG,Manufacturing,OPS
+PN,Plant North,MFG
+PS,Plant South,MFG
+QUAL,Quality,MFG
+LOG,Logistics,OPS
+WHO,Warehouse,LOG
+FLT,Fleet,LOG
+PRC,Procurement,OPS
+SAL,Sales,ACME
+DOM,Domestic,SAL
+DIR,Direct,DOM
+RET,Retail,DOM
+INT,International,SAL
+EMEA,EMEA,INT
+APAC,APAC,INT
+AME,Americas,INT
+LATAM,LATAM,INT
+MKT,Marketing,ACME
+BRD,Brand,MKT
+DIG,Digital,MKT
+SUP,Support,ACME
+IT,IT,SUP
+HELP,Helpdesk,IT
+INFR,Infrastructure,IT
+SEC,Security,SUP
+HR,HR,SUP
+FIN,Finance,SUP
+ACCT,Accounting,FIN
+TREAS,Treasury,FIN
+AUD,Internal Audit,FIN
+RISK,Risk,FIN
+RND,RnD,ACME
+HW,Hardware,RND
+SW,Software,RND
+INV,Innovation,RND
+QC,Quantum Computing,RND
+CC1001,Press Hall (Modernised),PN
+CC1002,Paint Shop,PN
+CC1003,Final Assembly,PN
+CC1004,Tooling,PN
+CC1005,Plant North Admin,PN
+CC1010,Stamping,PS
+CC1011,Welding,PS
+CC1012,Body Shop,PS
+CC1013,Plant South Admin,PS
+CC1020,Inbound QA,QUAL
+CC1021,Process QA,QUAL
+CC1022,Outbound QA,QUAL
+CC1030,Warehouse North,WHO
+CC1031,Warehouse South,WHO
+CC1032,Warehouse Central,WHO
+CC1033,Warehouse Returns,WHO
+CC1040,Fleet Trucks,FLT
+CC1041,Fleet Vans,FLT
+CC1050,Direct Materials,PRC
+CC1051,Indirect Materials,PRC
+CC1052,Vendor Management,PRC
+CC2001,Direct Sales North,DIR
+CC2002,Direct Sales South,DIR
+CC2003,Direct Sales Online,DIR
+CC2010,Retail Flagship,RET
+CC2011,Retail Outlets,RET
+CC2012,Retail Pop-up,RET
+CC2020,UK Sales,EMEA
+CC2021,Germany Sales,EMEA
+CC2022,France Sales,EMEA
+CC2023,Nordics Sales,EMEA
+CC2024,Iberia Sales,EMEA
+CC2030,Japan Sales,APAC
+CC2031,China Sales,APAC
+CC2032,Australia Sales,APAC
+CC2033,SEA Sales,APAC
+CC2034,India Sales,APAC
+CC2040,US Sales,AME
+CC2041,Canada Sales,AME
+CC2042,Mexico Sales,AME
+CC2050,Brazil Sales,LATAM
+CC2051,Argentina Sales,LATAM
+CC3001,Brand Strategy,BRD
+CC3002,Brand Design,BRD
+CC3003,Brand Research,BRD
+CC3010,Digital Acquisition,DIG
+CC3011,Digital Content,DIG
+CC3012,Digital Analytics,DIG
+CC3013,Digital Ops,DIG
+CC3014,Marketing Automation,DIG
+CC4001,IT Helpdesk Tier 1,HELP
+CC4002,IT Helpdesk Tier 2,HELP
+CC4003,IT Helpdesk Mobile,HELP
+CC4010,Networking,INFR
+CC4011,Servers,INFR
+CC4012,Cloud Platform,INFR
+CC4020,Information Security,SEC
+CC4021,Identity and Access,SEC
+CC4030,HR Operations,HR
+CC4031,Talent Acquisition,HR
+CC4032,Learning and Development,HR
+CC4040,Accounts Payable,ACCT
+CC4041,Accounts Receivable,ACCT
+CC4042,General Ledger,ACCT
+CC4050,Treasury Operations,TREAS
+CC4060,Internal Audit,AUD
+CC4070,Operational Risk,RISK
+CC4071,Compliance,RISK
+CC5001,Hardware Design,HW
+CC5002,Prototyping,HW
+CC5003,Hardware QA,HW
+CC5010,Software Platform,SW
+CC5011,Software Apps,SW
+CC5012,Software DevOps,SW
+CC5013,Software QA,SW
+CC5020,Innovation Research,INV
+CC5021,Innovation Prototypes,INV
+CC5022,Innovation Partnerships,INV
+CC5030,Quantum Algorithms,QC
+CC5031,Quantum Hardware,QC
+CC5032,Quantum Simulation,QC
+CC5033,Quantum Partnerships,QC

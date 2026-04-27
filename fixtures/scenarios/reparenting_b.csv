@@ -1,0 +1,25 @@
+Code,Name,ParentCode
+GRP,Group,
+OPS,Operations,GRP
+SAL,Sales,GRP
+SUP,Support,GRP
+MFG,Manufacturing,OPS
+LOG,Logistics,OPS
+INTL,International,SAL
+DOM,Domestic,SAL
+IT,IT,SUP
+HR,HR,SUP
+M01,Plant A,MFG
+M02,Plant B,MFG
+M03,Plant C,LOG
+L01,Inbound Logistics,LOG
+L02,Outbound Logistics,LOG
+L03,Returns,LOG
+D01,UK Sales,INTL
+D02,US Sales,INTL
+I01,APAC Sales,INTL
+I02,EMEA Sales,INTL
+IT01,Helpdesk,IT
+IT02,Infrastructure,IT
+HR01,HR Operations,HR
+HR02,Recruiting,IT

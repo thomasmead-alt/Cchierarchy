@@ -1,0 +1,15 @@
+Level1,Level2,Level3,Code,Name
+Group,Operations,Manufacturing,M01,Plant A
+Group,Operations,Manufacturing,M02,Plant B
+Group,Operations,Manufacturing,M03,Plant C
+Group,Operations,Logistics,L01,Inbound Logistics
+Group,Operations,Logistics,L02,Outbound Logistics
+Group,Operations,Logistics,L03,Returns
+Group,Sales,Domestic,D01,UK Sales
+Group,Sales,Domestic,D02,US Sales
+Group,Sales,International,I01,APAC Sales
+Group,Sales,International,I02,EMEA Sales
+Group,Support,IT,IT01,Helpdesk
+Group,Support,IT,IT02,Infrastructure
+Group,Support,HR,HR01,HR Operations
+Group,Support,HR,HR02,Recruiting

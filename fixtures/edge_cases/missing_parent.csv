@@ -1,0 +1,7 @@
+Code,Name,ParentCode
+ROOT,Group,
+SAL,Sales,ROOT
+ORPHAN1,Orphan A,GHOST_PARENT
+ORPHAN2,Orphan B,DOES_NOT_EXIST
+NORMAL1,Normal CC,SAL
+NORMAL2,Another Normal CC,SAL

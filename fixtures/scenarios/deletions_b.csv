@@ -1,0 +1,19 @@
+Level1,Level2,Level3,Code,Name
+Group,Operations,Manufacturing,D001,Plant North
+Group,Operations,Manufacturing,D002,Plant South
+Group,Operations,Logistics,D010,Warehouse
+Group,Operations,Logistics,D012,Distribution
+Group,Operations,Procurement,D020,Direct Materials
+Group,Operations,Procurement,D021,Indirect Materials
+Group,Sales,Domestic,D100,UK Sales
+Group,Sales,Domestic,D101,US Sales
+Group,Sales,International,D110,APAC Sales
+Group,Sales,International,D111,EMEA Sales
+Group,Marketing,Brand,D200,Brand
+Group,Marketing,Digital,D210,Digital Acquisition
+Group,Marketing,Digital,D211,Digital Content
+Group,Support,IT,D300,IT Helpdesk
+Group,Support,IT,D301,IT Infrastructure
+Group,Support,HR,D310,HR Operations
+Group,Support,Finance,D320,Accounting
+Group,Support,Finance,D321,Treasury

@@ -1,0 +1,80 @@
+Code,Name,ParentCode
+GLBX,Globex,
+FO,Front Office,GLBX
+EQ,Equities,FO
+CEQ,Cash Equities,EQ
+EDR,Equity Derivatives,EQ
+PB,Prime Brokerage,EQ
+FI,Fixed Income,FO
+RT,Rates,FI
+CR,Credit,FI
+FX,FX,FI
+IB,Investment Banking,FO
+MA,M and A,IB
+ECM,ECM,IB
+DCM,DCM,IB
+MO,Middle Office,GLBX
+RSK,Risk,MO
+MR,Market Risk,RSK
+CRR,Credit Risk,RSK
+OR,Operational Risk,RSK
+CMP,Compliance,MO
+REG,Regulatory,CMP
+IA,Internal Audit,CMP
+PC,Product Control,MO
+BO,Back Office,GLBX
+OPS,Operations,BO
+SET,Settlements,OPS
+REC,Reconciliations,OPS
+CA,Corporate Actions,OPS
+TECH,Technology,BO
+TT,Trading Tech,TECH
+RT2,Risk Tech,TECH
+INF,Infrastructure,TECH
+FIN,Finance,BO
+G100,Cash Equities Trading,CEQ
+G101,Cash Equities Sales,CEQ
+G102,Program Trading,CEQ
+G110,Listed Derivatives,EDR
+G111,OTC Derivatives,EDR
+G120,PB Sales,PB
+G121,PB Financing,PB
+G122,PB Operations,PB
+G130,Rates Trading,RT
+G131,Rates Sales,RT
+G132,Rates Structuring,RT
+G140,Credit Trading,CR
+G141,Credit Sales,CR
+G150,FX Spot,FX
+G151,FX Forwards,FX
+G160,M and A Advisory,MA
+G161,M and A Restructuring,MA
+G170,Equity Capital Markets,ECM
+G180,DCM Bonds,DCM
+G181,DCM Loans,DCM
+G200,Market Risk Equities,MR
+G201,Market Risk Rates,MR
+G210,Counterparty Risk,CRR
+G211,Wholesale Credit Risk,CRR
+G220,Op Risk Reporting,OR
+G230,Regulatory Reporting,REG
+G240,Audit Markets,IA
+G241,Audit Functions,IA
+G250,PC Equities,PC
+G251,PC Fixed Income,PC
+G252,PC IB,PC
+G300,Settlements Equities,SET
+G301,Settlements FI,SET
+G310,Cash Recs,REC
+G311,Securities Recs,REC
+G320,Corp Actions Equities,CA
+G330,Front Office Tech,TT
+G331,Algo Tech,TT
+G332,Trading Surveillance Tech,TT
+G340,Market Risk Tech,RT2
+G341,Credit Risk Tech,RT2
+G350,Cloud Platform,INF
+G351,Network and Hosting,INF
+G360,Financial Reporting,FIN
+G361,Management Reporting,FIN
+G362,Tax,FIN

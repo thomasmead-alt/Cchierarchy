@@ -1,0 +1,54 @@
+Level1,Level2,Level3,Level4,Code,Name
+Globex,Front Office,Equities,Cash Equities,G100,Cash Equities Trading
+Globex,Front Office,Equities,Cash Equities,G101,Cash Equities Sales
+Globex,Front Office,Equities,Cash Equities,G102,Program Trading
+Globex,Front Office,Equities,Structured Equities,G110,Listed Derivatives
+Globex,Front Office,Equities,Structured Equities,G111,OTC Derivatives
+Globex,Front Office,Equities,Structured Equities,G112,Synthetic Prime
+Globex,Front Office,Equities,Prime Brokerage,G120,PB Sales
+Globex,Front Office,Equities,Prime Brokerage,G121,PB Financing
+Globex,Front Office,Equities,Prime Brokerage,G122,PB Operations
+Globex,Front Office,Fixed Income,Rates,G130,Rates Trading
+Globex,Front Office,Fixed Income,Rates,G131,Rates Sales
+Globex,Front Office,Fixed Income,Rates,G132,Rates Structuring
+Globex,Front Office,Fixed Income,Credit,G140,Credit Trading
+Globex,Front Office,Fixed Income,Credit,G141,Credit Sales
+Globex,Front Office,Fixed Income,Credit,G142,Distressed Credit
+Globex,Front Office,Fixed Income,FX,G150,FX Spot
+Globex,Front Office,Fixed Income,FX,G151,FX Forwards
+Globex,Front Office,Fixed Income,FX,G152,EM FX
+Globex,Front Office,Investment Banking,M and A,G160,M and A Advisory
+Globex,Front Office,Investment Banking,M and A,G161,M and A Restructuring
+Globex,Front Office,Investment Banking,ECM,G170,Equity Capital Markets
+Globex,Front Office,Investment Banking,DCM,G181,DCM Loans
+Globex,Front Office,Digital Assets,Crypto,G190,Crypto Spot
+Globex,Front Office,Digital Assets,Crypto,G191,Crypto Derivatives
+Globex,Front Office,Digital Assets,Tokenization,G192,Token Issuance
+Globex,Middle Office,Risk,Market Risk,G200,Market Risk Equities
+Globex,Middle Office,Risk,Market Risk,G201,Market Risk Rates
+Globex,Middle Office,Risk,Market Risk,G202,Market Risk FX
+Globex,Middle Office,Risk,Credit Risk,G210,Counterparty Risk
+Globex,Middle Office,Risk,Credit Risk,G211,Wholesale Credit Risk
+Globex,Middle Office,Risk,Operational Risk,G220,Op Risk Reporting
+Globex,Middle Office,Compliance,Regulatory,G230,Regulatory Reporting
+Globex,Middle Office,Product Control,,G250,PC Equities
+Globex,Middle Office,Product Control,,G251,PC Fixed Income
+Globex,Middle Office,Product Control,,G252,PC IB
+Globex,Audit,Internal Audit,Markets,G240,Audit Markets
+Globex,Audit,Internal Audit,Functions,G241,Audit Functions
+Globex,Back Office,Operations,Settlements,G300,Settlements Equities
+Globex,Back Office,Operations,Settlements,G301,Settlements FI
+Globex,Back Office,Operations,Reconciliations,G310,Cash Recs
+Globex,Back Office,Operations,Reconciliations,G311,Securities Recs
+Globex,Back Office,Operations,Corporate Actions,G320,Corp Actions Equities
+Globex,Back Office,Operations,Corporate Actions,G322,ETF Servicing
+Globex,Back Office,Technology,Trading Tech,G330,Front Office Tech
+Globex,Back Office,Technology,Trading Tech,G331,Algo Tech
+Globex,Back Office,Technology,Trading Tech,G332,Trading Surveillance Tech
+Globex,Back Office,Technology,Risk Tech,G340,Market Risk Tech
+Globex,Back Office,Technology,Risk Tech,G341,Credit Risk Tech
+Globex,Back Office,Technology,Infrastructure,G350,Cloud Platform
+Globex,Back Office,Finance,,G360,Financial Reporting
+Globex,Back Office,Finance,,G361,Management Reporting
+Globex,Back Office,Finance,,G362,Tax
+Globex,Back Office,Finance,,G363,Cost Allocation

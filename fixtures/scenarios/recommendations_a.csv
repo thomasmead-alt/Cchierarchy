@@ -1,0 +1,13 @@
+Level1,Level2,Code,Name
+Group,Sales,R001,UK Sales
+Group,Sales,R002,US Sales
+Group,Operations,R003,UK Operations
+Group,Operations,R004,US Operations
+Group,Marketing,R005,UK Marketing
+Group,Marketing,R006,US Marketing
+Group,Support,R007,UK IT
+Group,Support,R008,US IT
+Group,Finance,R009,UK Finance
+Group,Finance,R010,US Finance
+Group,Legal,R011,UK Legal
+Group,Legal,R012,US Legal

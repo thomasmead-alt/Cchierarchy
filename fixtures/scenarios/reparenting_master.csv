@@ -1,0 +1,15 @@
+Code,Name,ResponsiblePerson
+M01,Plant A,Alice Operations
+M02,Plant B,Alice Operations
+M03,Plant C,Alice Operations
+L01,Inbound Logistics,Alice Operations
+L02,Outbound Logistics,Alice Operations
+L03,Returns,Alice Operations
+D01,UK Sales,Bob Sales
+D02,US Sales,Bob Sales
+I01,APAC Sales,Bob Sales
+I02,EMEA Sales,Bob Sales
+IT01,Helpdesk,Dave IT
+IT02,Infrastructure,Dave IT
+HR01,HR Operations,Eve HR
+HR02,Recruiting,Eve HR

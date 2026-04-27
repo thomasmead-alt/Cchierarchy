@@ -1,0 +1,11 @@
+Level1,Level2,Code,Name
+Group,Sales,X01,Shared Cost Centre 1
+Group,Sales,X02,Shared Cost Centre 2
+Group,Sales,X03,Shared Cost Centre 3
+Group,Sales,X04,Sales Only
+Group,Operations,X05,Ops Only
+Group,Operations,X06,Shared Cost Centre 6
+Group,Marketing,X07,Marketing Only
+Group,Marketing,X02,Shared Cost Centre 2
+Group,Support,X08,Support Only
+Group,Support,X01,Shared Cost Centre 1

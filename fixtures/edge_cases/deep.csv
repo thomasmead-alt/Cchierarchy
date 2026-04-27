@@ -1,0 +1,14 @@
+Level1,Level2,Level3,Level4,Level5,Level6,Level7,Code,Name
+Group,Region EMEA,Country UK,City London,Building HQ,Floor 12,Wing East,DP001,London HQ Wing East
+Group,Region EMEA,Country UK,City London,Building HQ,Floor 12,Wing West,DP002,London HQ Wing West
+Group,Region EMEA,Country UK,City London,Building HQ,Floor 11,Wing East,DP003,London 11E
+Group,Region EMEA,Country UK,City London,Building Annexe,Floor 1,,DP004,London Annexe
+Group,Region EMEA,Country UK,City Manchester,Building 1,Floor 1,,DP005,Manchester 1F
+Group,Region EMEA,Country FR,City Paris,Building Tour,Floor 30,Wing North,DP006,Paris 30N
+Group,Region EMEA,Country DE,City Berlin,Building Mitte,Floor 5,,DP007,Berlin 5
+Group,Region NA,Country US,City New York,Building 5th Ave,Floor 40,Wing North,DP008,NYC 40N
+Group,Region NA,Country US,City New York,Building 5th Ave,Floor 40,Wing South,DP009,NYC 40S
+Group,Region NA,Country US,City Chicago,Building Sears,Floor 88,,DP010,Chicago 88
+Group,Region NA,Country CA,City Toronto,Building Bay,Floor 25,,DP011,Toronto 25
+Group,Region APAC,Country JP,City Tokyo,Building Shinjuku,Floor 50,Wing East,DP012,Tokyo 50E
+Group,Region APAC,Country SG,City Singapore,Building Marina,Floor 20,,DP013,Singapore 20

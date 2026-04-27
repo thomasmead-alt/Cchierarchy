@@ -1,0 +1,5 @@
+﻿Code,Name,ParentCode
+ROOT,Group,
+SAL,Sales,ROOT
+BOM001,UK Sales,SAL
+BOM002,US Sales,SAL

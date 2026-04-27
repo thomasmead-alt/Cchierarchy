@@ -1,0 +1,9 @@
+Level1,Level2,Level3,Level4,Code,Name
+Group,Sales,,,SP001,Sales Direct
+Group,Sales,Domestic,,SP002,UK Sales
+Group,Sales,Domestic,Retail,SP003,UK Retail
+Group,,,,SP004,Top-level Cost Centre
+Group,Operations,Manufacturing,,SP005,Plant
+Group,Operations,,,SP006,Operations Direct
+Group,Support,IT,,SP007,IT Direct
+Group,Support,IT,Helpdesk,SP008,IT Helpdesk

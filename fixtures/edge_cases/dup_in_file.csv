@@ -1,0 +1,9 @@
+Code,Name,ParentCode
+ROOT,Group,
+SAL,Sales,ROOT
+OPS,Operations,ROOT
+DUP001,First definition,SAL
+DUP001,Second definition,OPS
+DUP002,Only one,SAL
+DUP002,Duplicated under Ops,OPS
+DUP003,Unique,SAL
