@@ -6,7 +6,7 @@
 // in the working tree.
 
 
-const norm = (s) => (s == null ? '' : String(s).trim());
+var norm = (s) => (s == null ? '' : String(s).trim());
 
 function buildLeafLookup(workingTree) {
   // code -> { node, parentId }

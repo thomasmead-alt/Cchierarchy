@@ -150,22 +150,74 @@ function beginEdit(target, node, field, onChange) {
 }
 
 function wireSortable(container, tree, onChange) {
-  // Use SortableJS on every <ul> within the container so users can drag a node
-  // into any group's child list.
-  const lists = container.querySelectorAll('ul');
-  for (const ul of lists) {
-    new Sortable(ul, {
-      group: 'cchier',
-      animation: 120,
-      fallbackOnBody: true,
-      swapThreshold: 0.65,
-      ghostClass: 'drag-ghost',
-      onEnd: (evt) => {
-        const id = evt.item.dataset.id;
-        const newParentId = evt.to.dataset.parentId === '__root__' ? null : evt.to.dataset.parentId;
-        moveNode(tree, id, newParentId);
-        onChange();
-      },
+  // Native HTML5 drag-and-drop. No external library.
+  // Each LI is draggable; each UL is a drop target. On drop we update the
+  // model via moveNode() and re-render via onChange().
+  let draggedId = null;
+
+  // Pre-compute descendant set for the dragged node so we can refuse drops
+  // into the node itself or any of its children (which would create a cycle).
+  let blocked = new Set();
+  const collectDescendants = (id, out = new Set()) => {
+    out.add(id);
+    for (const n of tree.nodes.values()) {
+      if (n.parentId === id) collectDescendants(n.id, out);
+    }
+    return out;
+  };
+
+  const lis = container.querySelectorAll('li[data-id]');
+  for (const li of lis) {
+    li.setAttribute('draggable', 'true');
+    li.addEventListener('dragstart', (e) => {
+      draggedId = li.dataset.id;
+      blocked = collectDescendants(draggedId);
+      e.dataTransfer.effectAllowed = 'move';
+      try { e.dataTransfer.setData('text/plain', draggedId); } catch (_) {}
+      li.classList.add('drag-ghost');
+      e.stopPropagation();
+    });
+    li.addEventListener('dragend', () => {
+      li.classList.remove('drag-ghost');
+      container.querySelectorAll('.drag-over').forEach((el) => el.classList.remove('drag-over'));
+      draggedId = null;
+      blocked = new Set();
+    });
+  }
+
+  const uls = container.querySelectorAll('ul');
+  for (const ul of uls) {
+    ul.addEventListener('dragover', (e) => {
+      if (!draggedId) return;
+      const targetParent = ul.dataset.parentId === '__root__' ? null : ul.dataset.parentId;
+      if (targetParent && blocked.has(targetParent)) return; // refuse cycle
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+    });
+    ul.addEventListener('dragenter', (e) => {
+      if (!draggedId) return;
+      const targetParent = ul.dataset.parentId === '__root__' ? null : ul.dataset.parentId;
+      if (targetParent && blocked.has(targetParent)) return;
+      e.stopPropagation();
+      // clear other highlights, then mark this ul
+      container.querySelectorAll('.drag-over').forEach((el) => el.classList.remove('drag-over'));
+      ul.classList.add('drag-over');
+    });
+    ul.addEventListener('dragleave', (e) => {
+      if (e.target === ul) ul.classList.remove('drag-over');
+    });
+    ul.addEventListener('drop', (e) => {
+      if (!draggedId) return;
+      const targetParent = ul.dataset.parentId === '__root__' ? null : ul.dataset.parentId;
+      if (targetParent && blocked.has(targetParent)) return;
+      e.preventDefault();
+      e.stopPropagation();
+      ul.classList.remove('drag-over');
+      moveNode(tree, draggedId, targetParent);
+      const movedId = draggedId;
+      draggedId = null;
+      blocked = new Set();
+      onChange(movedId);
     });
   }
 }
