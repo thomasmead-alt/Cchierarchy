@@ -333,7 +333,8 @@ code.block {
   font-family: inherit; font-size: 12px;
   padding: 4px 6px; border: 1px solid var(--border-2); border-radius: var(--r-sm); background: var(--content);
 }
-.mapper-grid label.levels { grid-column: 1 / -1; }
+.mapper-grid .levels { grid-column: 1 / -1; display: flex; flex-direction: column; gap: 3px; }
+.mapper-grid .level-label { font-size: 11.5px; color: var(--muted); }
 .level-list { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 2px; }
 .level-chip {
   display: inline-flex; align-items: center; gap: 4px;

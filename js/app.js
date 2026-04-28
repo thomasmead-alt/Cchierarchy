@@ -217,11 +217,12 @@ function renderMapper(slot) {
       <label>Code <select data-field="code">${opts(m.code)}</select></label>
       <label>Name / Description <select data-field="name">${opts(m.name)}</select></label>
       <label>Parent code <select data-field="parent">${opts(m.parent)}</select></label>
-      <label class="levels">Level columns
+      <div class="levels">
+        <span class="level-label">Level columns</span>
         <span class="level-list">${headers.map((h) => `
           <label class="level-chip"><input type="checkbox" data-field="level" value="${escapeAttr(h)}"${(m.levels || []).includes(h) ? ' checked' : ''}/>${escape(h)}</label>
         `).join('')}</span>
-      </label>`;
+      </div>`;
   }
   mapper.innerHTML = `<div class="mapper-head"><strong>Column mapping</strong> <span class="muted">— overrides auto-detect for this file</span></div>
     <div class="mapper-grid">${fieldsHtml}</div>`;
@@ -1246,6 +1247,107 @@ function wireRail() {
   });
 }
 
+// --- Session save / load ----------------------------------------------------
+// Serialise everything needed to resume: parsed CSVs (already plain JSON),
+// per-slot column mappings, the working tree (Map -> array), the master
+// records, the project assignments (Map/Set -> arrays), and view state.
+const SESSION_VERSION = 1;
+function serializeSession() {
+  const tree = state.working;
+  const treeJson = tree
+    ? { rootIds: tree.rootIds, nodes: [...tree.nodes.values()] }
+    : null;
+  const fileMeta = (slot) => state.raw[slot] ? { name: state.raw[slot].name } : null;
+  return {
+    version: SESSION_VERSION,
+    savedAt: new Date().toISOString(),
+    fileMeta: { A: fileMeta('A'), B: fileMeta('B'), master: fileMeta('master'), pc: fileMeta('pc'), projects: fileMeta('projects') },
+    parsed: state.parsed,
+    mapping: state.mapping,
+    working: treeJson,
+    hierarchyMode: state.hierarchyMode,
+    activeView: state.activeView,
+    projectAssignments: state.projectAssignments
+      ? {
+          byCode: [...state.projectAssignments.byCode.entries()],
+          projects: [...state.projectAssignments.projects.entries()].map(
+            ([k, v]) => [k, { description: v.description, codes: [...v.codes] }],
+          ),
+        }
+      : null,
+  };
+}
+
+function saveSession() {
+  const json = JSON.stringify(serializeSession(), null, 2);
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+  downloadString(`cchier_session_${stamp}.json`, json, 'application/json');
+  setStatus('Session saved.', 'ok');
+}
+
+async function loadSessionFromFile(file) {
+  try {
+    const text = await file.text();
+    const data = JSON.parse(text);
+    if (!data || data.version !== SESSION_VERSION) {
+      setStatus(`Unsupported session file (version=${data && data.version}). Expected ${SESSION_VERSION}.`, 'error');
+      return;
+    }
+    // Restore parsed sources, mappings, then re-run reparseSlot so trees rebuild.
+    state.parsed = data.parsed || { A: null, B: null, master: null, pc: null, projects: null };
+    state.mapping = data.mapping || { A: {}, B: {}, master: {}, pc: {}, projects: {} };
+    for (const slot of ['A', 'B', 'master', 'pc', 'projects']) {
+      const dz = $(`label.dropzone[data-slot="${slot}"]`);
+      if (!dz) continue;
+      const fnEl = dz.querySelector('[data-filename]');
+      if (fnEl) fnEl.textContent = (data.fileMeta && data.fileMeta[slot] && data.fileMeta[slot].name) || (state.parsed[slot] ? '(restored)' : '');
+      reparseSlot(slot);
+      renderMapper(slot);
+    }
+    // Project assignments need their Map/Set rehydrated.
+    if (data.projectAssignments) {
+      state.projectAssignments = {
+        byCode: new Map(data.projectAssignments.byCode),
+        projects: new Map(
+          data.projectAssignments.projects.map(([k, v]) => [k, { description: v.description, codes: new Set(v.codes) }]),
+        ),
+      };
+    } else {
+      state.projectAssignments = null;
+    }
+    // Working tree: rebuild Map from the array, reuse the saved rootIds.
+    if (data.working) {
+      const t = newTree();
+      for (const n of data.working.nodes) t.nodes.set(n.id, n);
+      t.rootIds = data.working.rootIds;
+      state.working = t;
+    } else {
+      state.working = null;
+    }
+    state.workingHistory = [];
+    state.hierarchyMode = data.hierarchyMode || 'tree';
+    setView(data.activeView || 'imports');
+    recompute();
+    setStatus(`Session "${file.name}" loaded.`, 'ok');
+  } catch (err) {
+    console.error(err);
+    setStatus(`Failed to load session: ${err.message || err}`, 'error');
+  }
+}
+
+function wireSessionButtons() {
+  $('#saveSession').addEventListener('click', saveSession);
+  const loader = $('#loadSession');
+  if (loader) {
+    const input = loader.querySelector('input[type=file]');
+    input.addEventListener('change', (ev) => {
+      const f = ev.target.files[0];
+      if (f) loadSessionFromFile(f);
+      ev.target.value = ''; // allow re-loading the same file
+    });
+  }
+}
+
 function init() {
   wireRail();
   wireDropzones();
@@ -1253,6 +1355,7 @@ function init() {
   wireTiles();
   wireExports();
   wireWorkingActions();
+  wireSessionButtons();
   $('#loadSamples').addEventListener('click', loadSamples);
   $('#clearAll').addEventListener('click', clearAll);
   setView('imports');
