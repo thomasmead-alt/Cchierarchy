@@ -83,6 +83,14 @@ async function loadSlot(slot, file) {
     state.parsed[slot] = parsed;
     state.mapping[slot] = state.mapping[slot] || {}; // user overrides preserved across reloads
     reparseSlot(slot);
+    // If this is a hierarchy slot and the working tree has no manual edits
+    // yet, refresh it so subsequent loads (e.g., A first then B) actually use
+    // the latest B as the editing baseline. Once the user has edited, we
+    // preserve their work.
+    if ((slot === 'A' || slot === 'B') && state.workingHistory.length === 0) {
+      const fresh = state.trees.B || state.trees.A;
+      state.working = fresh ? cloneTree(fresh) : null;
+    }
     setStatus(`Loaded <strong>${file.name}</strong> into ${slot}.`, 'ok');
     renderMapper(slot);
     recompute();
@@ -280,8 +288,18 @@ function recompute() {
 
   if (a) renderTree($('#tree-A'), a, { editable: false, highlights: hlA });
   else $('#tree-A').innerHTML = '<div class="empty-state">Drop hierarchy A above.</div>';
-  if (b) renderTree($('#tree-B'), b, { editable: false, highlights: hlB });
-  else $('#tree-B').innerHTML = '<div class="empty-state">Drop hierarchy B above.</div>';
+  // Compare's middle pane shows the live "working" tree (B + your edits) so
+  // hierarchy edits are reflected here in real time. Falls back to the raw B
+  // upload if the user hasn't started a working tree yet.
+  const compareTree = state.working || b;
+  if (compareTree) {
+    renderTree($('#tree-B'), compareTree, {
+      editable: false,
+      highlights: state.working ? hlW : hlB,
+    });
+  } else {
+    $('#tree-B').innerHTML = '<div class="empty-state">Drop hierarchy B above.</div>';
+  }
   if (state.working) {
     if (state.hierarchyMode === 'table') {
       renderWorkingTable($('#table-working'), state.working);
@@ -306,7 +324,10 @@ function recompute() {
   $$('.seg-btn[data-mode]').forEach((b) => b.classList.toggle('active', b.dataset.mode === state.hierarchyMode));
 
   $('#meta-A').textContent = a ? `${countLeaves(a)} cost centres / ${countParents(a)} groups` : '';
-  $('#meta-B').textContent = b ? `${countLeaves(b)} cost centres / ${countParents(b)} groups` : '';
+  const metaTree = state.working || b;
+  $('#meta-B').textContent = metaTree
+    ? `${countLeaves(metaTree)} cost centres / ${countParents(metaTree)} groups${state.working ? ' (working)' : ''}`
+    : '';
   const metaPc = $('#meta-pc');
   if (metaPc) {
     if (state.trees.pc) {
@@ -655,7 +676,7 @@ function renderProjects() {
     const totalQuality =
       f.duplicates.length + f.missing.length + f.invalid.length;
     const isOrphan = p.id === '__unassigned__';
-    out += `<div class="project-card${isOrphan ? ' project-orphan' : ''}">
+    out += `<div class="project-card${isOrphan ? ' project-orphan' : ''}" data-project-id="${escapeAttr(p.id)}">
       <header class="project-head">
         <div>
           <strong class="project-name">${escape(p.name)}</strong>
@@ -671,6 +692,10 @@ function renderProjects() {
         <div class="ptile"><span class="ptile-count tone-purple">${f.missing.length}</span><span class="ptile-label">Missing</span></div>
         <div class="ptile"><span class="ptile-count tone-amber">${f.invalid.length}</span><span class="ptile-label">Invalid</span></div>
       </div>
+      <details class="project-scope" open>
+        <summary>Scope · ${p.ccCount} cost centres in working hierarchy</summary>
+        <div class="tree project-scope-tree" data-scope-for="${escapeAttr(p.id)}"></div>
+      </details>
       <div class="project-foot">
         <span class="meta">${totalChanges} changes · ${totalQuality} quality issues</span>
         <button class="btn btn-small" data-action="export-project" data-id="${escapeAttr(p.id)}">Download project ZIP</button>
@@ -679,6 +704,51 @@ function renderProjects() {
   }
   out += '</div>';
   c.innerHTML = out;
+
+  // Mount per-project sub-trees once the HTML is in the DOM.
+  if (state.working) {
+    for (const p of state.projects) {
+      const container = c.querySelector(`.project-scope-tree[data-scope-for="${cssEscape(p.id)}"]`);
+      if (!container) continue;
+      const subtree = projectScopedTree(state.working, p.ccCodes);
+      const highlights = buildHighlights(subtree, state.report, 'working');
+      if (subtree.nodes.size === 0) {
+        container.innerHTML = '<div class="empty-state">No matching cost centres in the working hierarchy.</div>';
+      } else {
+        renderTree(container, subtree, { editable: false, highlights });
+      }
+    }
+  }
+}
+
+// Build a sub-tree from `tree` containing only the leaves whose codes are in
+// ccCodes plus their ancestors. Renderable with renderTree like any other tree.
+function projectScopedTree(tree, ccCodes) {
+  const out = newTree();
+  if (!tree || !ccCodes || !ccCodes.size) return out;
+  const idsToInclude = new Set();
+  walk(tree, (node) => {
+    if (node.kind === 'leaf' && ccCodes.has(node.code)) {
+      let cur = node;
+      while (cur) {
+        idsToInclude.add(cur.id);
+        cur = cur.parentId ? tree.nodes.get(cur.parentId) : null;
+      }
+    }
+  });
+  for (const id of idsToInclude) {
+    const n = tree.nodes.get(id);
+    if (n) out.nodes.set(id, { ...n });
+  }
+  // Also collect leaves that are in scope but their immediate parent might not
+  // already be a "parent" kind (e.g., recommended single-leaf groups).
+  out.rootIds = tree.rootIds.filter((id) => idsToInclude.has(id));
+  return out;
+}
+
+function cssEscape(s) {
+  if (typeof CSS !== 'undefined' && CSS.escape) return CSS.escape(s);
+  return String(s).replace(/[^a-zA-Z0-9_-]/g, (c) => '\\' + c);
 }
 
 function exportProject(projectId) {
