@@ -166,6 +166,13 @@ function wireSortable(container, tree, onChange) {
     return out;
   };
 
+  const clearHighlights = () => {
+    container.querySelectorAll('.drag-over, .drag-block').forEach((el) => {
+      el.classList.remove('drag-over');
+      el.classList.remove('drag-block');
+    });
+  };
+
   const lis = container.querySelectorAll('li[data-id]');
   for (const li of lis) {
     li.setAttribute('draggable', 'true');
@@ -174,12 +181,20 @@ function wireSortable(container, tree, onChange) {
       blocked = collectDescendants(draggedId);
       e.dataTransfer.effectAllowed = 'move';
       try { e.dataTransfer.setData('text/plain', draggedId); } catch (_) {}
-      li.classList.add('drag-ghost');
+      li.classList.add('drag-source');
+      container.classList.add('dragging');
+      // Pre-mark forbidden ULs (descendants of the dragged node) so the cursor
+      // and styling clearly indicate where you can NOT drop.
+      container.querySelectorAll('ul').forEach((ul) => {
+        const tp = ul.dataset.parentId === '__root__' ? null : ul.dataset.parentId;
+        if (tp && blocked.has(tp)) ul.classList.add('drag-block');
+      });
       e.stopPropagation();
     });
     li.addEventListener('dragend', () => {
-      li.classList.remove('drag-ghost');
-      container.querySelectorAll('.drag-over').forEach((el) => el.classList.remove('drag-over'));
+      li.classList.remove('drag-source');
+      container.classList.remove('dragging');
+      clearHighlights();
       draggedId = null;
       blocked = new Set();
     });
@@ -190,7 +205,10 @@ function wireSortable(container, tree, onChange) {
     ul.addEventListener('dragover', (e) => {
       if (!draggedId) return;
       const targetParent = ul.dataset.parentId === '__root__' ? null : ul.dataset.parentId;
-      if (targetParent && blocked.has(targetParent)) return; // refuse cycle
+      if (targetParent && blocked.has(targetParent)) {
+        e.dataTransfer.dropEffect = 'none';
+        return; // don't preventDefault → drop is refused
+      }
       e.preventDefault();
       e.dataTransfer.dropEffect = 'move';
     });
@@ -199,7 +217,7 @@ function wireSortable(container, tree, onChange) {
       const targetParent = ul.dataset.parentId === '__root__' ? null : ul.dataset.parentId;
       if (targetParent && blocked.has(targetParent)) return;
       e.stopPropagation();
-      // clear other highlights, then mark this ul
+      // clear other active highlights but keep block markers
       container.querySelectorAll('.drag-over').forEach((el) => el.classList.remove('drag-over'));
       ul.classList.add('drag-over');
     });
@@ -217,7 +235,30 @@ function wireSortable(container, tree, onChange) {
       const movedId = draggedId;
       draggedId = null;
       blocked = new Set();
+      container.classList.remove('dragging');
+      // Tell the app to re-render and flash the moved node.
       onChange(movedId);
     });
   }
+}
+
+// Briefly highlight a node after a re-render so the user can see where their
+// drag landed. Called by app.js on each onChange that supplies the moved id.
+function flashMoved(container, nodeId) {
+  if (!nodeId || !container) return;
+  const li = container.querySelector(`li[data-id="${cssEscape(nodeId)}"]`);
+  if (!li) return;
+  const node = li.querySelector('.node');
+  if (!node) return;
+  node.classList.add('drag-flash');
+  // bring into view if it's scrolled off
+  if (typeof node.scrollIntoView === 'function') {
+    node.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }
+  setTimeout(() => node.classList.remove('drag-flash'), 900);
+}
+
+function cssEscape(s) {
+  if (window.CSS && CSS.escape) return CSS.escape(s);
+  return String(s).replace(/[^a-zA-Z0-9_-]/g, (c) => '\\' + c);
 }

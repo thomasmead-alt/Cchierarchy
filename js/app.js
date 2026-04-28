@@ -7,9 +7,9 @@
 
 
 const state = {
-  raw: { A: null, B: null, master: null },
-  parsed: { A: null, B: null, master: null },
-  trees: { A: null, B: null },
+  raw: { A: null, B: null, master: null, pc: null },
+  parsed: { A: null, B: null, master: null, pc: null },
+  trees: { A: null, B: null, pc: null },
   master: { records: [], headers: [] },
   working: null,
   workingHistory: [],
@@ -18,12 +18,14 @@ const state = {
   activeView: 'imports',
   report: null,
   recommendations: [],
+  projects: [],
 };
 
 const VIEW_TITLES = {
   imports: 'Imports',
   dashboard: 'Compare',
   hierarchy: 'Hierarchy',
+  projects: 'Projects',
   reports: 'Reports',
 };
 
@@ -77,6 +79,12 @@ async function loadSlot(slot, file) {
       const m = parseMaster(parsed);
       state.master = { records: m.records, headers: parsed.meta.fields || [] };
       $(`label.dropzone[data-slot="master"] [data-format]`).textContent = 'master';
+    } else if (slot === 'pc') {
+      const headers = parsed.meta.fields || [];
+      const fmt = detectFormat(headers);
+      const result = parseHierarchy(parsed, 'pc', fmt);
+      state.trees.pc = result.tree;
+      $(`label.dropzone[data-slot="pc"] [data-format]`).textContent = result.format;
     } else {
       const headers = parsed.meta.fields || [];
       const fmt = detectFormat(headers);
@@ -93,16 +101,17 @@ async function loadSlot(slot, file) {
 }
 
 function clearAll() {
-  state.raw = { A: null, B: null, master: null };
-  state.parsed = { A: null, B: null, master: null };
-  state.trees = { A: null, B: null };
+  state.raw = { A: null, B: null, master: null, pc: null };
+  state.parsed = { A: null, B: null, master: null, pc: null };
+  state.trees = { A: null, B: null, pc: null };
   state.master = { records: [], headers: [] };
   state.working = null;
   state.workingHistory = [];
   state.filter = null;
   state.report = null;
   state.recommendations = [];
-  for (const slot of ['A', 'B', 'master']) {
+  state.projects = [];
+  for (const slot of ['A', 'B', 'master', 'pc']) {
     $(`label.dropzone[data-slot="${slot}"] [data-filename]`).textContent = '';
     $(`label.dropzone[data-slot="${slot}"] [data-format]`).textContent = '';
   }
@@ -125,6 +134,7 @@ function recompute() {
   const report = compare(a || newTree(), state.working || b || newTree(), state.master.records);
   state.report = report;
   state.recommendations = state.working ? suggest(state.master.records, state.working) : [];
+  state.projects = deriveProjects(state.trees.pc, state.master.records, report);
 
   // tile counts
   const counts = summarise(report);
@@ -150,9 +160,13 @@ function recompute() {
     renderTree($('#tree-working'), state.working, {
       editable: true,
       highlights: hlW,
-      onChange: () => {
+      onChange: (movedId) => {
         pushHistory();
         recompute();
+        if (movedId) {
+          // Flash the moved node after the next paint so users see where it landed.
+          requestAnimationFrame(() => flashMoved($('#tree-working'), movedId));
+        }
       },
     });
   } else {
@@ -161,6 +175,14 @@ function recompute() {
 
   $('#meta-A').textContent = a ? `${countLeaves(a)} cost centres / ${countParents(a)} groups` : '';
   $('#meta-B').textContent = b ? `${countLeaves(b)} cost centres / ${countParents(b)} groups` : '';
+  const metaPc = $('#meta-pc');
+  if (metaPc) {
+    if (state.trees.pc) {
+      metaPc.textContent = `${state.projects.filter((p) => p.id !== '__unassigned__').length} projects · ${state.trees.pc.nodes.size} PC nodes`;
+    } else {
+      metaPc.textContent = '';
+    }
+  }
 
   renderSidebar();
 }
@@ -224,6 +246,7 @@ function renderSidebar() {
   renderMissing();
   renderInvalid();
   renderRecommendations();
+  renderProjects();
 }
 
 function renderChanges() {
@@ -345,6 +368,155 @@ function renderRecommendations() {
   c.innerHTML = out;
 }
 
+// ---------- Projects (derive + render) ----------
+function deriveProjects(pcTree, masterRecords, report) {
+  if (!pcTree || !pcTree.rootIds.length) return [];
+
+  // Build code->profitCentre lookup from master.
+  const ccToPc = new Map();
+  for (const r of masterRecords) if (r.code && r.profitCentre) ccToPc.set(r.code, r.profitCentre);
+
+  const collectPcCodes = (rootId) => {
+    const codes = new Set();
+    const recurse = (id) => {
+      const node = pcTree.nodes.get(id);
+      if (!node) return;
+      if (node.code) codes.add(node.code);
+      // Also accept the node's NAME as a fallback PC identifier when the PC
+      // file uses level-columns (no per-node code).
+      if (!node.code && node.name) codes.add(node.name);
+      for (const n of pcTree.nodes.values()) if (n.parentId === id) recurse(n.id);
+    };
+    recurse(rootId);
+    return codes;
+  };
+
+  const filterReportByCcCodes = (rep, codes) => ({
+    newCC: rep.newCC.filter((x) => codes.has(x.code)),
+    amendedCC: rep.amendedCC.filter((x) => codes.has(x.code)),
+    deletedNodes: rep.deletedNodes.filter((x) => x.kind === 'leaf' ? codes.has(x.code) : false),
+    duplicates: rep.duplicates.filter((d) => codes.has(d.code)),
+    missing: rep.missing.filter((m) => codes.has(m.code)),
+    invalid: rep.invalid.filter((v) => codes.has(v.code)),
+    // node-level changes can't be attributed to a single CC; export as empty.
+    newNodes: [],
+    amendedNodes: [],
+  });
+
+  const projects = [];
+  for (const rootId of pcTree.rootIds) {
+    const rootNode = pcTree.nodes.get(rootId);
+    if (!rootNode) continue;
+    const pcCodes = collectPcCodes(rootId);
+    const ccCodes = new Set();
+    for (const [cc, pc] of ccToPc) if (pcCodes.has(pc)) ccCodes.add(cc);
+    projects.push({
+      id: rootId,
+      name: rootNode.name || rootNode.code || 'Project',
+      code: rootNode.code || '',
+      pcCount: pcCodes.size,
+      ccCount: ccCodes.size,
+      ccCodes,
+      filtered: filterReportByCcCodes(report, ccCodes),
+    });
+  }
+
+  // Catch-all bucket for cost centres that have no profit-centre assignment, OR
+  // whose profit centre isn't found anywhere in the PC hierarchy. Always shown
+  // when at least one such CC exists so they don't silently disappear.
+  const allProjectCcCodes = new Set();
+  for (const p of projects) for (const c of p.ccCodes) allProjectCcCodes.add(c);
+  const orphan = new Set();
+  for (const r of masterRecords) {
+    if (!r.code) continue;
+    if (!allProjectCcCodes.has(r.code)) orphan.add(r.code);
+  }
+  if (orphan.size) {
+    projects.push({
+      id: '__unassigned__',
+      name: 'Unassigned',
+      code: '',
+      pcCount: 0,
+      ccCount: orphan.size,
+      ccCodes: orphan,
+      filtered: filterReportByCcCodes(report, orphan),
+    });
+  }
+
+  return projects;
+}
+
+function renderProjects() {
+  const c = $('#panel-projects');
+  if (!c) return;
+  if (!state.trees.pc) {
+    c.innerHTML = empty('Drop a profit-centre hierarchy CSV in Imports to see projects.');
+    return;
+  }
+  if (!state.master.records.length) {
+    c.innerHTML = empty('Load the master list (with a ProfitCentre column) so cost centres can be mapped to projects.');
+    return;
+  }
+  if (!state.projects.length) {
+    c.innerHTML = empty('No projects derived. The PC hierarchy has no top-level nodes, or master rows have no ProfitCentre values.');
+    return;
+  }
+
+  // Aggregate counts for the header
+  const totalCC = state.projects.reduce((s, p) => s + p.ccCount, 0);
+  const projectCount = state.projects.filter((p) => p.id !== '__unassigned__').length;
+
+  let out = `<div class="section-heading">${projectCount} projects · ${totalCC} cost centres covered</div>`;
+  out += '<div class="project-grid">';
+  for (const p of state.projects) {
+    const f = p.filtered;
+    const totalChanges =
+      f.newCC.length + f.amendedCC.length + f.deletedNodes.length;
+    const totalQuality =
+      f.duplicates.length + f.missing.length + f.invalid.length;
+    const isOrphan = p.id === '__unassigned__';
+    out += `<div class="project-card${isOrphan ? ' project-orphan' : ''}">
+      <header class="project-head">
+        <div>
+          <strong class="project-name">${escape(p.name)}</strong>
+          ${p.code ? `<code class="meta">${escape(p.code)}</code>` : ''}
+        </div>
+        <div class="project-meta meta">${p.ccCount} cost centres${p.pcCount ? ` · ${p.pcCount} profit centres` : ''}</div>
+      </header>
+      <div class="project-tiles">
+        <div class="ptile"><span class="ptile-count tone-green">${f.newCC.length}</span><span class="ptile-label">New CC</span></div>
+        <div class="ptile"><span class="ptile-count tone-amber">${f.amendedCC.length}</span><span class="ptile-label">Amended CC</span></div>
+        <div class="ptile"><span class="ptile-count tone-red">${f.deletedNodes.length}</span><span class="ptile-label">Deleted</span></div>
+        <div class="ptile"><span class="ptile-count tone-coral">${f.duplicates.length}</span><span class="ptile-label">Duplicates</span></div>
+        <div class="ptile"><span class="ptile-count tone-purple">${f.missing.length}</span><span class="ptile-label">Missing</span></div>
+        <div class="ptile"><span class="ptile-count tone-amber">${f.invalid.length}</span><span class="ptile-label">Invalid</span></div>
+      </div>
+      <div class="project-foot">
+        <span class="meta">${totalChanges} changes · ${totalQuality} quality issues</span>
+        <button class="btn btn-small" data-action="export-project" data-id="${escapeAttr(p.id)}">Download project ZIP</button>
+      </div>
+    </div>`;
+  }
+  out += '</div>';
+  c.innerHTML = out;
+}
+
+function exportProject(projectId) {
+  const p = state.projects.find((x) => x.id === projectId);
+  if (!p) return;
+  const slug = (p.name || 'project').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+  // Reuse buildAllCsvs but feed it a fake report whose lists are the filtered ones.
+  const fakeReport = { ...state.report, ...p.filtered };
+  const files = buildAllCsvs(fakeReport);
+  // Add a manifest CSV listing the cost centres in scope, useful for review.
+  const manifestRows = [...p.ccCodes].sort().map((code) => {
+    const m = state.master.records.find((r) => r.code === code) || {};
+    return { Code: code, Name: m.name || '', ProfitCentre: m.profitCentre || '', ResponsiblePerson: m.responsiblePerson || '' };
+  });
+  files['cost_centres_in_scope.csv'] = toCsv(manifestRows, ['Code', 'Name', 'ProfitCentre', 'ResponsiblePerson']);
+  downloadZip(`project_${slug}.zip`, files);
+}
+
 function escape(s) {
   return String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
@@ -386,6 +558,8 @@ function handleSidebarClick(ev) {
       source: 'manual',
     });
     recompute();
+  } else if (action === 'export-project') {
+    exportProject(btn.dataset.id);
   }
 }
 
@@ -592,23 +766,38 @@ CC400,Web Platform,DIG
 CC401,Data Analytics,DIG
 CC401,Data Analytics,IT
 `,
-  master_csv: `Code,Name,ResponsiblePerson
-CC100,Plant A,Alice Operations
-CC101,Plant B,Alice Operations
-CC102,Warehouse North,Alice Operations
-CC103,Warehouse South,Alice Operations
-CC200,Direct Sales UK,Bob Sales
-CC201,Retail UK,Bob Sales
-CC202,EU Sales,Bob Sales
-CC203,APAC Sales,Bob Sales
-CC300,IT Helpdesk,Carol IT
-CC301,IT Infrastructure,Carol IT
-CC302,HR Operations,Dave HR
-CC303,Finance Ops,Eve Finance
-CC304,Treasury,Eve Finance
-CC400,Web Platform,Frank Digital
-CC401,Data Analytics,Frank Digital
-CC500,Investor Relations,Eve Finance
+  master_csv: `Code,Name,ResponsiblePerson,ProfitCentre
+CC100,Plant A,Alice Operations,PC100
+CC101,Plant B,Alice Operations,PC100
+CC102,Warehouse North,Alice Operations,PC110
+CC103,Warehouse South,Alice Operations,PC110
+CC200,Direct Sales UK,Bob Sales,PC200
+CC201,Retail UK,Bob Sales,PC200
+CC202,EU Sales,Bob Sales,PC210
+CC203,APAC Sales,Bob Sales,PC210
+CC300,IT Helpdesk,Carol IT,PC400
+CC301,IT Infrastructure,Carol IT,PC400
+CC302,HR Operations,Dave HR,PC410
+CC303,Finance Ops,Eve Finance,PC420
+CC304,Treasury,Eve Finance,PC420
+CC400,Web Platform,Frank Digital,PC310
+CC401,Data Analytics,Frank Digital,PC310
+CC500,Investor Relations,Eve Finance,PC420
+`,
+  pc_csv: `Code,Name,ParentCode
+PC1,Operations,
+PC100,Manufacturing PC,PC1
+PC110,Logistics PC,PC1
+PC2,Sales,
+PC200,Domestic Sales PC,PC2
+PC210,International Sales PC,PC2
+PC3,Marketing,
+PC300,Brand PC,PC3
+PC310,Digital PC,PC3
+PC4,Support,
+PC400,IT PC,PC4
+PC410,HR PC,PC4
+PC420,Finance PC,PC4
 `,
 };
 
@@ -617,6 +806,7 @@ async function loadSamples() {
   await loadSlot('A', make('hierarchy_a.csv', SAMPLES.hierarchy_a_csv));
   await loadSlot('B', make('hierarchy_b.csv', SAMPLES.hierarchy_b_csv));
   await loadSlot('master', make('master.csv', SAMPLES.master_csv));
+  await loadSlot('pc', make('profit_centres.csv', SAMPLES.pc_csv));
   setStatus('Loaded sample CSVs. Switching to Compare view.', 'ok');
   setView('dashboard');
 }

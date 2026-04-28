@@ -1,0 +1,26 @@
+Code,Name,ParentCode
+PC1,Operations,
+PC100,Plant North PC,PC1
+PC101,Plant South PC,PC1
+PC110,Quality PC,PC1
+PC120,Logistics PC,PC1
+PC130,Procurement PC,PC1
+PC2,Sales,
+PC200,Direct Sales PC,PC2
+PC201,Retail PC,PC2
+PC210,EMEA Sales PC,PC2
+PC220,APAC Sales PC,PC2
+PC230,Americas Sales PC,PC2
+PC3,Marketing,
+PC300,Brand PC,PC3
+PC310,Digital PC,PC3
+PC320,Events PC,PC3
+PC4,Support,
+PC400,IT PC,PC4
+PC410,HR PC,PC4
+PC420,Finance PC,PC4
+PC5,RnD,
+PC500,Hardware PC,PC5
+PC510,Software PC,PC5
+PC520,Innovation PC,PC5
+PC530,Quantum PC,PC5

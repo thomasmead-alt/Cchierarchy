@@ -1,0 +1,14 @@
+Code,Name,ParentCode
+PC1,Operations,
+PC100,Manufacturing PC,PC1
+PC110,Logistics PC,PC1
+PC2,Sales,
+PC200,Domestic Sales PC,PC2
+PC210,International Sales PC,PC2
+PC3,Marketing,
+PC300,Brand PC,PC3
+PC310,Digital PC,PC3
+PC4,Support,
+PC400,IT PC,PC4
+PC410,HR PC,PC4
+PC420,Finance PC,PC4

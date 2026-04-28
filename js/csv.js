@@ -253,6 +253,9 @@ function parseMaster(parsedCsv) {
   const rpH = findHeader(headers, [
     'ResponsiblePerson', 'Responsible Person', 'Owner', 'Manager', 'CostCentreOwner',
   ]);
+  const pcH = findHeader(headers, [
+    'ProfitCentre', 'Profit Centre', 'ProfitCenter', 'Profit Center', 'PC', 'PCCode',
+  ]);
   const out = [];
   const issues = [];
   const seen = new Set();
@@ -265,6 +268,7 @@ function parseMaster(parsedCsv) {
       code,
       name: norm(nameH ? row[nameH] : ''),
       responsiblePerson: norm(rpH ? row[rpH] : ''),
+      profitCentre: norm(pcH ? row[pcH] : ''),
       raw: row,
     });
   }

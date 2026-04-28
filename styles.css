@@ -446,8 +446,68 @@ code.block {
 .node.diff-recommended { background: #EFEBFB; box-shadow: 0 0 0 1px #D2C9F0 inset; }
 
 li.collapsed > ul { display: none; }
-.tree .drag-ghost { opacity: 0.4; }
-.tree .drag-over > .node { box-shadow: 0 0 0 2px var(--db-coral) inset; }
+
+/* ---- Drag and drop feedback ---- */
+.editable-tree.dragging { cursor: grabbing; }
+.editable-tree.dragging .node { user-select: none; }
+
+/* The source node lifts: shadow + slight scale, faded */
+.editable-tree li.drag-source > .node {
+  opacity: 0.45;
+  transform: scale(0.97);
+  box-shadow: 0 4px 10px rgba(27,49,57,0.18);
+  transition: transform .12s, opacity .12s;
+}
+
+/* Every UL becomes a visible droppable target while dragging */
+.editable-tree.dragging ul {
+  position: relative;
+  min-height: 6px;
+  outline: 1px dashed transparent;
+  background: rgba(255, 54, 33, 0.04);
+  transition: background .12s, outline-color .12s;
+}
+
+/* Active drop target — a clear coral fill + dashed border */
+.editable-tree ul.drag-over {
+  background: rgba(255, 54, 33, 0.14);
+  outline: 2px dashed var(--db-coral);
+  outline-offset: -2px;
+  border-radius: 4px;
+}
+/* and a thin coral insert line at the bottom of the drop target's last child */
+.editable-tree ul.drag-over::after {
+  content: '';
+  display: block;
+  height: 2px;
+  background: var(--db-coral);
+  border-radius: 2px;
+  margin: 4px 6px 2px;
+  box-shadow: 0 0 0 1px rgba(255,54,33,0.25);
+}
+
+/* Forbidden drop target (would create a cycle) — red tint, not-allowed */
+.editable-tree ul.drag-block {
+  background: repeating-linear-gradient(
+    -45deg,
+    rgba(214, 47, 75, 0.05) 0 6px,
+    rgba(214, 47, 75, 0.10) 6px 12px
+  );
+  cursor: not-allowed;
+  outline: 1px dashed rgba(214, 47, 75, 0.45);
+  outline-offset: -2px;
+}
+.editable-tree ul.drag-block * { cursor: not-allowed; }
+
+/* Brief flash animation on the moved node after a successful drop */
+@keyframes drag-flash {
+  0%   { background: rgba(255,54,33,0.0); }
+  20%  { background: rgba(255,54,33,0.40); box-shadow: 0 0 0 2px var(--db-coral) inset; }
+  100% { background: rgba(255,54,33,0.0); box-shadow: 0 0 0 0 transparent inset; }
+}
+.editable-tree .node.drag-flash {
+  animation: drag-flash .85s ease-out;
+}
 
 .node-actions { display: none; gap: 4px; margin-left: 6px; }
 .editable-tree .node:hover .node-actions { display: inline-flex; }
@@ -573,6 +633,65 @@ li.collapsed > ul { display: none; }
   font-weight: 500;
 }
 .export-btn:hover .exp-count { background: var(--db-coral-50); border-color: #F8C9BE; color: var(--db-coral-700); }
+
+/* ===============================================================
+   Projects view
+   =============================================================== */
+.project-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 12px;
+  margin-top: 4px;
+}
+.project-card {
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 12px 14px;
+  background: var(--content);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  transition: border-color .12s, box-shadow .12s;
+}
+.project-card:hover { border-color: var(--db-coral); box-shadow: var(--shadow-2); }
+.project-card.project-orphan {
+  background: repeating-linear-gradient(-45deg, #FBFAF8 0 8px, #F4EFEA 8px 16px);
+  border-style: dashed;
+}
+.project-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+.project-name { font-size: 14px; color: var(--text); }
+.project-head code { font-size: 11px; padding: 1px 6px; border-radius: 4px; background: var(--bg); border: 1px solid var(--border); margin-left: 6px; }
+.project-meta { font-size: 11.5px; text-align: right; }
+.project-tiles {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 6px;
+}
+.ptile {
+  display: flex; flex-direction: column; align-items: flex-start;
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: var(--r-sm); padding: 6px 8px;
+}
+.ptile-count { font-size: 16px; font-weight: 600; line-height: 1.1; }
+.ptile-label { font-size: 10px; color: var(--muted); margin-top: 2px; text-transform: uppercase; letter-spacing: 0.04em; }
+.tone-green { color: var(--db-green); }
+.tone-amber { color: var(--db-amber); }
+.tone-red { color: var(--db-red); }
+.tone-coral { color: var(--db-coral); }
+.tone-purple { color: var(--db-purple); }
+.project-foot {
+  display: flex; justify-content: space-between; align-items: center;
+  border-top: 1px solid var(--border); padding-top: 8px;
+}
+
+@media (max-width: 720px) {
+  .project-tiles { grid-template-columns: repeat(3, 1fr); }
+}
 
 /* ===============================================================
    Empty state
