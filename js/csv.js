@@ -130,11 +130,16 @@ function findHeader(headers, candidates) {
 }
 
 // --- Level-columns parser ---------------------------------------------------
-function parseLevels(rows, headers, source) {
+function parseLevels(rows, headers, source, mapping) {
   const tree = newTree();
-  const codeHeader = findHeader(headers, ['Code', 'CostCentre', 'CostCentreCode', 'CC Code']);
-  const nameHeader = findHeader(headers, ['Name', 'CostCentreName', 'CC Name']);
-  const levelHeaders = headers
+  const codeHeader =
+    (mapping && mapping.code) ||
+    findHeader(headers, ['Code', 'CostCentre', 'Cost Centre', 'CostCentreCode', 'CC Code']);
+  const nameHeader =
+    (mapping && mapping.name) ||
+    findHeader(headers, ['Name', 'CostCentreName', 'CC Name', 'Description', 'Cost Centre Name']);
+  const explicitLevels = mapping && mapping.levels && mapping.levels.length ? mapping.levels : null;
+  const levelHeaders = explicitLevels || headers
     .filter((h) => /^level\s*\d+$/i.test(h))
     .sort((a, b) => parseInt(a.match(/\d+/)[0], 10) - parseInt(b.match(/\d+/)[0], 10));
 
@@ -184,11 +189,17 @@ function parseLevels(rows, headers, source) {
 }
 
 // --- Parent/child parser ----------------------------------------------------
-function parseParentChild(rows, headers, source) {
+function parseParentChild(rows, headers, source, mapping) {
   const tree = newTree();
-  const codeHeader = findHeader(headers, ['Code', 'CostCentre', 'CostCentreCode']);
-  const nameHeader = findHeader(headers, ['Name', 'CostCentreName']);
-  const parentHeader = findHeader(headers, ['ParentCode', 'Parent', 'ParentId']);
+  const codeHeader =
+    (mapping && mapping.code) ||
+    findHeader(headers, ['Code', 'CostCentre', 'Cost Centre', 'CostCentreCode']);
+  const nameHeader =
+    (mapping && mapping.name) ||
+    findHeader(headers, ['Name', 'CostCentreName', 'Description', 'Cost Centre Name']);
+  const parentHeader =
+    (mapping && mapping.parent) ||
+    findHeader(headers, ['ParentCode', 'Parent', 'ParentId', 'Parent Code']);
   const kindHeader = findHeader(headers, ['Kind', 'Type', 'NodeType']);
 
   const issues = [];
@@ -230,32 +241,34 @@ function parseParentChild(rows, headers, source) {
   return { tree, issues };
 }
 
-function parseHierarchy(parsedCsv, source, formatOverride) {
+// mapping (optional): { code, name, parent, levels:[] } — explicit column names
+// chosen by the user. Any unspecified field falls back to auto-detection.
+function parseHierarchy(parsedCsv, source, formatOverride, mapping) {
   const headers = parsedCsv.meta.fields || [];
   const rows = parsedCsv.data || [];
   const format = formatOverride && formatOverride !== 'auto' ? formatOverride : detectFormat(headers);
   if (format === 'levels') {
-    const { tree, issues } = parseLevels(rows, headers, source);
+    const { tree, issues } = parseLevels(rows, headers, source, mapping);
     return { tree, issues, format };
   }
   if (format === 'parentChild') {
-    const { tree, issues } = parseParentChild(rows, headers, source);
+    const { tree, issues } = parseParentChild(rows, headers, source, mapping);
     return { tree, issues, format };
   }
   return { tree: newTree(), issues: [{ kind: 'unknown-format' }], format: 'unknown' };
 }
 
-function parseMaster(parsedCsv) {
+function parseMaster(parsedCsv, mapping) {
   const headers = parsedCsv.meta.fields || [];
   const rows = parsedCsv.data || [];
-  const codeH = findHeader(headers, ['Code', 'CostCentre', 'CostCentreCode']);
-  const nameH = findHeader(headers, ['Name', 'CostCentreName']);
-  const rpH = findHeader(headers, [
-    'ResponsiblePerson', 'Responsible Person', 'Owner', 'Manager', 'CostCentreOwner',
-  ]);
-  const pcH = findHeader(headers, [
-    'ProfitCentre', 'Profit Centre', 'ProfitCenter', 'Profit Center', 'PC', 'PCCode',
-  ]);
+  const codeH = (mapping && mapping.code) ||
+    findHeader(headers, ['Code', 'CostCentre', 'Cost Centre', 'CostCentreCode']);
+  const nameH = (mapping && mapping.name) ||
+    findHeader(headers, ['Name', 'CostCentreName', 'Description', 'Cost Centre Name']);
+  const rpH = (mapping && mapping.rp) ||
+    findHeader(headers, ['ResponsiblePerson', 'Responsible Person', 'Owner', 'Manager', 'CostCentreOwner']);
+  const pcH = (mapping && mapping.pc) ||
+    findHeader(headers, ['ProfitCentre', 'Profit Centre', 'ProfitCenter', 'Profit Center', 'PC', 'PCCode']);
   const out = [];
   const issues = [];
   const seen = new Set();

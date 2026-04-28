@@ -318,6 +318,110 @@ code.block {
 }
 
 /* ===============================================================
+   Column-mapping UI (per upload)
+   =============================================================== */
+.mapper { grid-column: 1 / -1; }
+.mapper:empty { display: none; }
+.mapper { background: var(--content); border: 1px dashed var(--border-2); border-radius: var(--r-md); padding: 8px 12px; margin-top: 4px; margin-bottom: 4px; }
+.mapper-head { font-size: 12px; margin-bottom: 6px; color: var(--text-2); }
+.mapper-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 8px 14px;
+}
+.mapper-grid label { display: flex; flex-direction: column; gap: 3px; font-size: 11.5px; color: var(--muted); }
+.mapper-grid select {
+  font-family: inherit; font-size: 12px;
+  padding: 4px 6px; border: 1px solid var(--border-2); border-radius: var(--r-sm); background: var(--content);
+}
+.mapper-grid label.levels { grid-column: 1 / -1; }
+.level-list { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 2px; }
+.level-chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 11px; padding: 2px 6px; border: 1px solid var(--border); border-radius: 999px;
+  background: var(--bg); cursor: pointer; flex-direction: row;
+}
+.level-chip input { margin: 0; }
+
+/* ===============================================================
+   Hierarchy view: segment toggle + table mode
+   =============================================================== */
+.seg {
+  display: inline-flex; border: 1px solid var(--border-2); border-radius: var(--r-md);
+  background: var(--content); overflow: hidden; margin-right: 6px;
+}
+.seg-btn {
+  background: transparent; border: none; color: var(--text-2);
+  font: inherit; font-size: 12px; padding: 5px 12px; cursor: pointer;
+}
+.seg-btn + .seg-btn { border-left: 1px solid var(--border-2); }
+.seg-btn:hover { background: var(--hover); color: var(--text); }
+.seg-btn.active { background: var(--db-coral); color: white; }
+
+.table-mode { padding: 0; flex: 1; overflow: auto; display: flex; flex-direction: column; min-height: 0; }
+.table-toolbar {
+  display: flex; align-items: center; gap: 10px; padding: 10px 14px;
+  border-bottom: 1px solid var(--border); background: #FBFAF8;
+  position: sticky; top: 0; z-index: 1;
+}
+.table-filter {
+  flex: 0 1 320px; padding: 5px 10px; font: inherit; font-size: 12.5px;
+  border: 1px solid var(--border-2); border-radius: var(--r-md);
+}
+.table-filter:focus { outline: 2px solid var(--db-coral); outline-offset: -1px; }
+.table-stats { font-size: 11.5px; }
+.table-bulk { margin-left: auto; display: inline-flex; gap: 6px; align-items: center; }
+.table-bulk select { font: inherit; font-size: 12px; padding: 4px 8px; border: 1px solid var(--border-2); border-radius: var(--r-sm); }
+
+.hier-table {
+  width: 100%; border-collapse: collapse; font-size: 12.5px;
+}
+.hier-table th, .hier-table td {
+  padding: 6px 10px; text-align: left;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+.hier-table thead th {
+  position: sticky; top: 41px; background: var(--content); z-index: 1;
+  font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted);
+}
+.hier-table th.cb, .hier-table td.cb { width: 28px; padding-right: 0; }
+.hier-table th.actions, .hier-table td.actions { width: 32px; text-align: right; }
+.hier-table tr:hover td { background: var(--hover); }
+.hier-table input[type="text"], .hier-table select {
+  font: inherit; font-size: 12.5px; width: 100%;
+  border: 1px solid transparent; background: transparent;
+  padding: 3px 6px; border-radius: var(--r-sm);
+}
+.hier-table input[type="text"]:focus, .hier-table select:focus {
+  border-color: var(--db-coral); background: var(--content); outline: none;
+}
+.hier-table input[type="text"]:hover, .hier-table select:hover {
+  border-color: var(--border-2); background: var(--content);
+}
+.hier-table .row-delete {
+  background: transparent; border: 1px solid var(--border-2); color: var(--muted);
+  width: 22px; height: 22px; border-radius: 4px; cursor: pointer;
+  font: inherit; font-size: 14px; line-height: 1; padding: 0;
+}
+.hier-table .row-delete:hover { color: var(--db-red); border-color: var(--db-red); }
+.hier-table .kind {
+  font-size: 9.5px; padding: 1px 6px; border-radius: 3px;
+  border: 1px solid var(--border); background: var(--bg); color: var(--muted);
+  font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em;
+}
+.hier-table .kind-parent { color: var(--db-blue); border-color: #C9DDED; background: #EAF2F9; }
+.hier-table .kind-leaf { color: var(--db-green); border-color: #BCE5D5; background: #E5F4ED; }
+
+/* ===============================================================
+   Projects toolbar
+   =============================================================== */
+.projects-toolbar {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 12px;
+  flex-wrap: wrap; gap: 8px;
+}
+
+/* ===============================================================
    Tiles (Compare view)
    =============================================================== */
 .tiles {

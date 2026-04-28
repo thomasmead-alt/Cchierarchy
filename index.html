@@ -138,11 +138,27 @@
             <label class="card dropzone" data-slot="pc">
               <div class="card-head">
                 <span class="card-title">Profit centre hierarchy</span>
-                <span class="card-sub">drives projects</span>
+                <span class="card-sub">seeds projects</span>
               </div>
               <div class="dz-body">
                 <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 4v12m0 0-4-4m4 4 4-4M4 20h16"/></svg>
                 <span class="dz-hint">Drop CSV or click to browse</span>
+                <span class="filename" data-filename></span>
+              </div>
+              <div class="card-foot">
+                <span class="format-badge" data-format></span>
+              </div>
+              <input type="file" accept=".csv" hidden />
+            </label>
+
+            <label class="card dropzone" data-slot="projects">
+              <div class="card-head">
+                <span class="card-title">Project assignments</span>
+                <span class="card-sub">optional · overrides PC</span>
+              </div>
+              <div class="dz-body">
+                <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 4v12m0 0-4-4m4 4 4-4M4 20h16"/></svg>
+                <span class="dz-hint">Code, Project, [Description]</span>
                 <span class="filename" data-filename></span>
               </div>
               <div class="card-foot">
@@ -266,6 +282,10 @@
               <p class="muted">Drag nodes to re-parent. Double-click a code or name to rename. Apply recommendations to group cost centres by responsible person.</p>
             </div>
             <div class="view-actions">
+              <div class="seg" role="tablist" aria-label="View mode">
+                <button class="seg-btn active" data-mode="tree" type="button">Tree</button>
+                <button class="seg-btn" data-mode="table" type="button">Table</button>
+              </div>
               <button class="btn btn-ghost" id="addRoot">+ Root group</button>
               <button class="btn btn-ghost" id="resetWorking">Reset to B</button>
               <button class="btn btn-ghost" id="undo" disabled>Undo</button>
@@ -279,6 +299,7 @@
                 <span class="card-sub">editable</span>
               </header>
               <div class="tree editable-tree" id="tree-working"></div>
+              <div class="table-mode" id="table-working" hidden></div>
             </section>
             <aside class="card sidebar">
               <header class="card-head"><span class="card-title">Recommendations</span></header>
