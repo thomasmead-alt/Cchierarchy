@@ -1,30 +1,42 @@
 // Build CSV files from the comparison report and trigger downloads.
 // Hand-rolled minimal STORED-only ZIP writer — no external library.
 
+// Approval lookup is provided by app.js via window.getApprovalStatus(type, id)
+// — kept loose so this file doesn't depend on app state directly.
+function _approval(type, id) {
+  try {
+    if (typeof window !== 'undefined' && typeof window.getApprovalStatus === 'function') {
+      return window.getApprovalStatus(type, id) || 'pending';
+    }
+  } catch (_) {}
+  return 'pending';
+}
+
 const FILES = {
   new_cost_centres: {
-    rows: (r) => r.newCC,
-    headers: ['code', 'name', 'parentPath', 'responsiblePerson'],
+    rows: (r) => r.newCC.map((x) => ({ ...x, status: _approval('newCC', x.code) })),
+    headers: ['status', 'code', 'name', 'parentPath', 'responsiblePerson'],
   },
   amended_cost_centres: {
-    rows: (r) => r.amendedCC,
-    headers: ['code', 'oldName', 'newName', 'oldParentPath', 'newParentPath', 'changeType'],
+    rows: (r) => r.amendedCC.map((x) => ({ ...x, status: _approval('amendedCC', x.code) })),
+    headers: ['status', 'code', 'oldName', 'newName', 'oldParentPath', 'newParentPath', 'changeType'],
   },
   new_nodes: {
-    rows: (r) => r.newNodes,
-    headers: ['path', 'name', 'code', 'childCount'],
+    rows: (r) => r.newNodes.map((x) => ({ ...x, status: _approval('newNode', x.path) })),
+    headers: ['status', 'path', 'name', 'code', 'childCount'],
   },
   amended_nodes: {
-    rows: (r) => r.amendedNodes,
-    headers: ['path', 'oldName', 'newName', 'renamed', 'addedChildren', 'removedChildren'],
+    rows: (r) => r.amendedNodes.map((x) => ({ ...x, status: _approval('amendedNode', x.path) })),
+    headers: ['status', 'path', 'oldName', 'newName', 'renamed', 'addedChildren', 'removedChildren'],
   },
   deleted_nodes: {
-    rows: (r) => r.deletedNodes,
-    headers: ['kind', 'path', 'code', 'name', 'parentPath'],
+    rows: (r) => r.deletedNodes.map((x) => ({ ...x, status: _approval('deletedNode', x.kind === 'leaf' ? x.code : x.path) })),
+    headers: ['status', 'kind', 'path', 'code', 'name', 'parentPath'],
   },
   duplicates: {
     rows: (r) => r.duplicates.flatMap((d) =>
       d.assignments.map((a) => ({
+        status: _approval('dup', d.code),
         code: d.code,
         source: a.source,
         parentPath: a.parentPath,
@@ -32,15 +44,15 @@ const FILES = {
         responsiblePerson: d.responsiblePerson,
       })),
     ),
-    headers: ['code', 'source', 'parentPath', 'name', 'responsiblePerson'],
+    headers: ['status', 'code', 'source', 'parentPath', 'name', 'responsiblePerson'],
   },
   missing: {
-    rows: (r) => r.missing,
-    headers: ['code', 'name', 'responsiblePerson'],
+    rows: (r) => r.missing.map((m) => ({ ...m, status: _approval('missing', m.code) })),
+    headers: ['status', 'code', 'name', 'responsiblePerson'],
   },
   invalid: {
-    rows: (r) => r.invalid,
-    headers: ['code', 'source', 'issue', 'hierName', 'masterName', 'parentPath'],
+    rows: (r) => r.invalid.map((v) => ({ ...v, status: _approval('invalid', v.code + '|' + v.source) })),
+    headers: ['status', 'code', 'source', 'issue', 'hierName', 'masterName', 'parentPath'],
   },
 };
 

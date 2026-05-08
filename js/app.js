@@ -25,6 +25,12 @@ const state = {
   report: null,
   recommendations: [],
   projects: [],
+  // global search query — highlights matches across every visible tree
+  searchQuery: '',
+  // per-change approval status: Map<"type::code", 'approved'|'rejected'>
+  // Type is one of: newCC, amendedCC, deletedCC, dup, missing, invalid.
+  // Pending is the absence of an entry in this Map.
+  approvals: new Map(),
   // ID of the project currently used as a SCOPE FILTER. When set, every view
   // (Compare, Hierarchy, Tiles, Changes, Reports) is restricted to the cost
   // centres in that project's scope. Click Restore to clear.
@@ -364,6 +370,8 @@ function recompute() {
   }
 
   renderSidebar();
+  applySearchHighlights();
+  autosave();
 }
 
 function countLeaves(t) {
@@ -428,22 +436,44 @@ function renderSidebar() {
   renderProjects();
 }
 
+// Approval helpers ---
+function approvalKey(type, identifier) { return `${type}::${identifier}`; }
+function getApproval(type, identifier) { return state.approvals.get(approvalKey(type, identifier)) || ''; }
+// Bridge for export.js — keeps that file independent of app state.
+if (typeof window !== 'undefined') window.getApprovalStatus = getApproval;
+function setApproval(type, identifier, status) {
+  const k = approvalKey(type, identifier);
+  if (!status) state.approvals.delete(k);
+  else state.approvals.set(k, status);
+  recompute();
+}
+function approvalControls(type, identifier) {
+  const status = getApproval(type, identifier);
+  const cls = (s) => 'btn btn-small approval-btn' + (status === s ? ' approval-active approval-' + s : '');
+  return `<div class="approval-controls" data-status="${escapeAttr(status)}">
+    ${status ? `<span class="approval-pill approval-pill-${status}">${status}</span>` : '<span class="approval-pill approval-pill-pending">pending</span>'}
+    <button class="${cls('approved')}" data-action="approve" data-type="${escapeAttr(type)}" data-id="${escapeAttr(identifier)}">Approve</button>
+    <button class="${cls('rejected')}" data-action="reject" data-type="${escapeAttr(type)}" data-id="${escapeAttr(identifier)}">Reject</button>
+    ${status ? `<button class="btn btn-small" data-action="reset-approval" data-type="${escapeAttr(type)}" data-id="${escapeAttr(identifier)}">Reset</button>` : ''}
+  </div>`;
+}
+
 function renderChanges() {
   const c = $('#panel-changes');
   if (!state.report) { c.innerHTML = empty('No comparison yet.'); return; }
   const r = state.report;
   const sections = [
-    ['New cost centres', 'new', r.newCC, (x) => `<code>${x.code}</code> ${escape(x.name)} <span class="meta">→ ${escape(x.parentPath || '(root)')}</span>`],
-    ['Amended cost centres', 'amended', r.amendedCC, (x) => `<code>${x.code}</code> <span class="meta">[${x.changeType}]</span><br>${escape(x.oldName)} → ${escape(x.newName)}<br><span class="meta">${escape(x.oldParentPath)} → ${escape(x.newParentPath)}</span>`],
-    ['New nodes', 'new', r.newNodes, (x) => `<strong>${escape(x.name)}</strong> <span class="meta">${escape(x.path)} · ${x.childCount} children</span>`],
-    ['Amended nodes', 'amended', r.amendedNodes, (x) => `<strong>${escape(x.path)}</strong>${x.renamed ? `<br>${escape(x.oldName)} → ${escape(x.newName)}` : ''}<br><span class="meta">+${x.addedChildren || '∅'} / -${x.removedChildren || '∅'}</span>`],
-    ['Deleted nodes', 'deleted', r.deletedNodes, (x) => `${x.kind === 'leaf' ? `<code>${x.code}</code> ${escape(x.name)}` : `<strong>${escape(x.name || x.path)}</strong>`} <span class="meta">${escape(x.parentPath || x.path || '')}</span>`],
+    ['New cost centres', 'new', 'newCC', r.newCC, (x) => `<code>${x.code}</code> ${escape(x.name)} <span class="meta">→ ${escape(x.parentPath || '(root)')}</span>`, (x) => x.code],
+    ['Amended cost centres', 'amended', 'amendedCC', r.amendedCC, (x) => `<code>${x.code}</code> <span class="meta">[${x.changeType}]</span><br>${escape(x.oldName)} → ${escape(x.newName)}<br><span class="meta">${escape(x.oldParentPath)} → ${escape(x.newParentPath)}</span>`, (x) => x.code],
+    ['New nodes', 'new', 'newNode', r.newNodes, (x) => `<strong>${escape(x.name)}</strong> <span class="meta">${escape(x.path)} · ${x.childCount} children</span>`, (x) => x.path],
+    ['Amended nodes', 'amended', 'amendedNode', r.amendedNodes, (x) => `<strong>${escape(x.path)}</strong>${x.renamed ? `<br>${escape(x.oldName)} → ${escape(x.newName)}` : ''}<br><span class="meta">+${x.addedChildren || '∅'} / -${x.removedChildren || '∅'}</span>`, (x) => x.path],
+    ['Deleted nodes', 'deleted', 'deletedNode', r.deletedNodes, (x) => `${x.kind === 'leaf' ? `<code>${x.code}</code> ${escape(x.name)}` : `<strong>${escape(x.name || x.path)}</strong>`} <span class="meta">${escape(x.parentPath || x.path || '')}</span>`, (x) => (x.kind === 'leaf' ? x.code : x.path)],
   ];
-  if (state.filter && !sections.find(([_, __, list]) => list === r[state.filter])) {
+  if (state.filter && !sections.find((s) => s[3] === r[state.filter])) {
     state.filter = null;
   }
   let out = '';
-  for (const [title, badge, list, render] of sections) {
+  for (const [title, badge, type, list, render, idOf] of sections) {
     if (state.filter && (
       (state.filter === 'newCC' && list !== r.newCC) ||
       (state.filter === 'amendedCC' && list !== r.amendedCC) ||
@@ -454,7 +484,7 @@ function renderChanges() {
     out += `<div class="section-heading">${title} (${list.length})</div>`;
     if (!list.length) out += `<div class="empty-state" style="padding:0.4rem 0;">None.</div>`;
     for (const item of list) {
-      out += `<div class="list-item"><span class="badge badge-${badge}">${badge}</span>${render(item)}</div>`;
+      out += `<div class="list-item"><span class="badge badge-${badge}">${badge}</span>${render(item)}${approvalControls(type, idOf(item))}</div>`;
     }
   }
   c.innerHTML = out || empty('No changes detected.');
@@ -479,6 +509,7 @@ function renderDuplicates() {
       ${d.responsiblePerson ? `<span class="meta">· ${escape(d.responsiblePerson)}</span>` : ''}
       ${parents}
       <div class="actions">${buttons}</div>
+      ${approvalControls('dup', d.code)}
     </div>`;
   }
   c.innerHTML = out;
@@ -498,6 +529,7 @@ function renderMissing() {
       <div class="actions">
         <button class="btn btn-small" data-action="add-missing" data-code="${escapeAttr(m.code)}">Add to working tree (root)</button>
       </div>
+      ${approvalControls('missing', m.code)}
     </div>`;
   }
   c.innerHTML = out;
@@ -516,6 +548,7 @@ function renderInvalid() {
       <code>${escape(v.code)}</code>
       ${v.issue === 'name-mismatch' ? `<br>${escape(v.hierName)} <span class="meta">vs master:</span> ${escape(v.masterName)}` : ''}
       <div class="meta">${escape(v.parentPath || '')}</div>
+      ${approvalControls('invalid', v.code + '|' + v.source)}
     </div>`;
   }
   c.innerHTML = out;
@@ -775,6 +808,7 @@ function renderProjects() {
         <span class="meta">${totalChanges} changes · ${totalQuality} quality issues</span>
         <div class="project-foot-actions">
           ${isOrphan ? '' : `<button class="btn btn-small ${state.activeProject === p.id ? 'btn-primary' : ''}" data-action="focus-project" data-id="${escapeAttr(p.id)}">${state.activeProject === p.id ? 'Restore full view' : 'Focus this project'}</button>`}
+          <button class="btn btn-small" data-action="mermaid-project" data-id="${escapeAttr(p.id)}">Mermaid</button>
           <button class="btn btn-small" data-action="export-project" data-id="${escapeAttr(p.id)}">Download ZIP</button>
         </div>
       </div>
@@ -890,6 +924,13 @@ function handleSidebarClick(ev) {
     exportProject(btn.dataset.id);
   } else if (action === 'focus-project') {
     setActiveProject(btn.dataset.id);
+  } else if (action === 'approve' || action === 'reject') {
+    setApproval(btn.dataset.type, btn.dataset.id, action === 'approve' ? 'approved' : 'rejected');
+  } else if (action === 'reset-approval') {
+    setApproval(btn.dataset.type, btn.dataset.id, '');
+  } else if (action === 'mermaid-project') {
+    const p = state.projects.find((x) => x.id === btn.dataset.id);
+    if (p) openMermaidModal({ ccCodes: p.ccCodes, title: p.name });
   } else if (action === 'download-starter-projects') {
     downloadStarterProjects();
   }
@@ -1425,6 +1466,7 @@ function serializeSession() {
           ),
         }
       : null,
+    approvals: [...state.approvals.entries()],
   };
 }
 
@@ -1435,54 +1477,213 @@ function saveSession() {
   setStatus('Session saved.', 'ok');
 }
 
+// Restore from a parsed session object. Returns true on success.
+function restoreSessionData(data) {
+  if (!data || data.version !== SESSION_VERSION) return false;
+  state.parsed = data.parsed || { A: null, B: null, master: null, pc: null, projects: null };
+  state.mapping = data.mapping || { A: {}, B: {}, master: {}, pc: {}, projects: {} };
+  for (const slot of ['A', 'B', 'master', 'pc', 'projects']) {
+    const dz = $(`label.dropzone[data-slot="${slot}"]`);
+    if (!dz) continue;
+    const fnEl = dz.querySelector('[data-filename]');
+    if (fnEl) fnEl.textContent = (data.fileMeta && data.fileMeta[slot] && data.fileMeta[slot].name) || (state.parsed[slot] ? '(restored)' : '');
+    reparseSlot(slot);
+    renderMapper(slot);
+  }
+  if (data.projectAssignments) {
+    state.projectAssignments = {
+      byCode: new Map(data.projectAssignments.byCode),
+      projects: new Map(
+        data.projectAssignments.projects.map(([k, v]) => [k, { description: v.description, codes: new Set(v.codes) }]),
+      ),
+    };
+  } else {
+    state.projectAssignments = null;
+  }
+  if (data.working) {
+    const t = newTree();
+    for (const n of data.working.nodes) t.nodes.set(n.id, n);
+    t.rootIds = data.working.rootIds;
+    state.working = t;
+  } else {
+    state.working = null;
+  }
+  state.workingHistory = [];
+  state.hierarchyMode = data.hierarchyMode || 'tree';
+  state.activeProject = data.activeProject || null;
+  state.approvals = new Map(data.approvals || []);
+  setView(data.activeView || 'imports');
+  recompute();
+  return true;
+}
+
 async function loadSessionFromFile(file) {
   try {
     const text = await file.text();
     const data = JSON.parse(text);
-    if (!data || data.version !== SESSION_VERSION) {
+    if (!restoreSessionData(data)) {
       setStatus(`Unsupported session file (version=${data && data.version}). Expected ${SESSION_VERSION}.`, 'error');
       return;
     }
-    // Restore parsed sources, mappings, then re-run reparseSlot so trees rebuild.
-    state.parsed = data.parsed || { A: null, B: null, master: null, pc: null, projects: null };
-    state.mapping = data.mapping || { A: {}, B: {}, master: {}, pc: {}, projects: {} };
-    for (const slot of ['A', 'B', 'master', 'pc', 'projects']) {
-      const dz = $(`label.dropzone[data-slot="${slot}"]`);
-      if (!dz) continue;
-      const fnEl = dz.querySelector('[data-filename]');
-      if (fnEl) fnEl.textContent = (data.fileMeta && data.fileMeta[slot] && data.fileMeta[slot].name) || (state.parsed[slot] ? '(restored)' : '');
-      reparseSlot(slot);
-      renderMapper(slot);
-    }
-    // Project assignments need their Map/Set rehydrated.
-    if (data.projectAssignments) {
-      state.projectAssignments = {
-        byCode: new Map(data.projectAssignments.byCode),
-        projects: new Map(
-          data.projectAssignments.projects.map(([k, v]) => [k, { description: v.description, codes: new Set(v.codes) }]),
-        ),
-      };
-    } else {
-      state.projectAssignments = null;
-    }
-    // Working tree: rebuild Map from the array, reuse the saved rootIds.
-    if (data.working) {
-      const t = newTree();
-      for (const n of data.working.nodes) t.nodes.set(n.id, n);
-      t.rootIds = data.working.rootIds;
-      state.working = t;
-    } else {
-      state.working = null;
-    }
-    state.workingHistory = [];
-    state.hierarchyMode = data.hierarchyMode || 'tree';
-    setView(data.activeView || 'imports');
-    recompute();
     setStatus(`Session "${file.name}" loaded.`, 'ok');
   } catch (err) {
     console.error(err);
     setStatus(`Failed to load session: ${err.message || err}`, 'error');
   }
+}
+
+// --- localStorage auto-save -------------------------------------------------
+const LS_KEY = 'cchier_session_v1';
+let _autosaveTimer = null;
+function autosave() {
+  if (_autosaveTimer) clearTimeout(_autosaveTimer);
+  _autosaveTimer = setTimeout(() => {
+    try {
+      // Only persist if there is anything worth saving.
+      if (!state.master.records.length && !state.trees.A && !state.trees.B) {
+        localStorage.removeItem(LS_KEY);
+        return;
+      }
+      const json = JSON.stringify(serializeSession());
+      localStorage.setItem(LS_KEY, json);
+    } catch (err) {
+      // Quota exceeded or other LS errors — fall back silently; the explicit
+      // Save session button still produces a downloadable JSON.
+      console.warn('autosave failed:', err);
+    }
+  }, 600);
+}
+
+function tryRestoreFromLocalStorage() {
+  try {
+    const json = localStorage.getItem(LS_KEY);
+    if (!json) return false;
+    const data = JSON.parse(json);
+    if (restoreSessionData(data)) {
+      setStatus('Restored your last session from this browser. <em>(Save session to keep a copy on disk.)</em>', 'ok');
+      return true;
+    }
+    return false;
+  } catch (err) {
+    console.warn('LS restore failed:', err);
+    return false;
+  }
+}
+
+// --- Mermaid modal ----------------------------------------------------------
+function openMermaidModal(opts) {
+  opts = opts || {};
+  const ccCodes = opts.ccCodes || null;
+  const title = opts.title || 'Working hierarchy';
+  let mode = 'compact';
+  const compute = () => buildMermaidDiagram(state.working || newTree(), state.report || {}, { mode, ccCodes, title });
+
+  const backdrop = document.createElement('div');
+  backdrop.className = 'modal-backdrop';
+  backdrop.innerHTML = `<div class="modal" role="dialog" aria-label="Mermaid diagram">
+    <div class="modal-head">
+      <strong>Mermaid diagram — ${escape(title)}</strong>
+      <div class="seg" role="tablist" style="margin-left:auto">
+        <button class="seg-btn active" data-mmode="compact" type="button">Compact</button>
+        <button class="seg-btn" data-mmode="full" type="button">Full</button>
+      </div>
+      <button class="btn btn-small modal-close" type="button" aria-label="Close">×</button>
+    </div>
+    <textarea class="modal-textarea" readonly spellcheck="false"></textarea>
+    <div class="modal-foot">
+      <span class="muted">Paste into a Mermaid block in Confluence, Notion, GitHub, or Markdown.</span>
+      <button class="btn btn-small modal-copy" type="button">Copy to clipboard</button>
+      <button class="btn btn-small modal-download" type="button">Download .mmd</button>
+      <a class="btn btn-small" href="https://mermaid.live/edit" target="_blank" rel="noopener">Open mermaid.live</a>
+    </div>
+  </div>`;
+  document.body.appendChild(backdrop);
+
+  const ta = backdrop.querySelector('.modal-textarea');
+  const refresh = () => { ta.value = compute(); };
+  refresh();
+
+  const closeModal = () => backdrop.remove();
+  backdrop.querySelector('.modal-close').addEventListener('click', closeModal);
+  backdrop.addEventListener('click', (e) => { if (e.target === backdrop) closeModal(); });
+  document.addEventListener('keydown', function once(e) {
+    if (e.key === 'Escape') { closeModal(); document.removeEventListener('keydown', once); }
+  });
+
+  backdrop.querySelectorAll('.seg-btn[data-mmode]').forEach((b) => {
+    b.addEventListener('click', () => {
+      mode = b.dataset.mmode;
+      backdrop.querySelectorAll('.seg-btn[data-mmode]').forEach((x) => x.classList.toggle('active', x === b));
+      refresh();
+    });
+  });
+  backdrop.querySelector('.modal-copy').addEventListener('click', () => {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(ta.value).then(
+        () => setStatus('Mermaid diagram copied to clipboard.', 'ok'),
+        () => { ta.select(); document.execCommand('copy'); setStatus('Copied (legacy).', 'ok'); },
+      );
+    } else {
+      ta.select(); document.execCommand('copy');
+      setStatus('Copied (legacy).', 'ok');
+    }
+  });
+  backdrop.querySelector('.modal-download').addEventListener('click', () => {
+    const slug = (title || 'diagram').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+    downloadString(`${slug}.mmd`, ta.value, 'text/plain');
+  });
+}
+
+function wireMermaidGlobal() {
+  const btn = $('#openMermaidGlobal');
+  if (btn) btn.addEventListener('click', () => openMermaidModal({ title: 'Whole hierarchy' }));
+}
+
+// --- Global search ----------------------------------------------------------
+// Single input in the topbar. Highlights every .node element across all
+// trees (A, B, working, project sub-trees) whose code or name contains the
+// query, auto-expanding ancestor LIs so matches are visible. In table mode
+// rows are flagged with .search-hit too.
+function applySearchHighlights() {
+  const q = (state.searchQuery || '').toLowerCase().trim();
+  const countEl = $('#searchCount');
+  // Always clear first so stale highlights vanish when the query is cleared.
+  document.querySelectorAll('.node.search-hit, tr.search-hit').forEach((el) => el.classList.remove('search-hit'));
+  if (!q) { if (countEl) countEl.textContent = ''; return; }
+  let total = 0;
+  // Trees
+  for (const node of document.querySelectorAll('.tree .node')) {
+    const text = ((node.querySelector('.code')?.textContent || '') + ' ' + (node.querySelector('.name')?.textContent || '')).toLowerCase();
+    if (text.includes(q)) {
+      node.classList.add('search-hit');
+      total += 1;
+      // Expand ancestor LIs that may be collapsed
+      let li = node.closest('li');
+      while (li) {
+        li.classList.remove('collapsed');
+        li = li.parentElement?.closest('li');
+      }
+    }
+  }
+  // Tabular hierarchy editor
+  for (const tr of document.querySelectorAll('.hier-table tbody tr')) {
+    const code = tr.querySelector('.cell-code')?.value || '';
+    const name = tr.querySelector('.cell-name')?.value || '';
+    if ((code + ' ' + name).toLowerCase().includes(q)) {
+      tr.classList.add('search-hit');
+      total += 1;
+    }
+  }
+  if (countEl) countEl.textContent = total ? `${total} match${total === 1 ? '' : 'es'}` : 'no matches';
+}
+
+function wireGlobalSearch() {
+  const input = $('#globalSearch');
+  if (!input) return;
+  input.addEventListener('input', (e) => {
+    state.searchQuery = e.target.value;
+    applySearchHighlights();
+  });
 }
 
 function wireFocusBanner() {
@@ -1512,8 +1713,13 @@ function init() {
   wireWorkingActions();
   wireSessionButtons();
   wireFocusBanner();
+  wireGlobalSearch();
+  wireMermaidGlobal();
   $('#loadSamples').addEventListener('click', loadSamples);
   $('#clearAll').addEventListener('click', clearAll);
+  // Try to restore the last session from localStorage. If present this also
+  // calls recompute() and sets the view, so we can return early.
+  if (tryRestoreFromLocalStorage()) return;
   setView('imports');
   recompute();
 }
