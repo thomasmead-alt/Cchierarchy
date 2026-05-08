@@ -25,6 +25,12 @@ const state = {
   report: null,
   recommendations: [],
   projects: [],
+  // ID of the project currently used as a SCOPE FILTER. When set, every view
+  // (Compare, Hierarchy, Tiles, Changes, Reports) is restricted to the cost
+  // centres in that project's scope. Click Restore to clear.
+  activeProject: null,
+  // Map<code, [projectName,...]> of CCs that appear in more than one project.
+  projectOverlaps: new Map(),
 };
 
 const VIEW_TITLES = {
@@ -265,12 +271,29 @@ function recompute() {
   }
 
   // Compare: working vs A, so user edits flow through to the change report.
-  const report = compare(a || newTree(), state.working || b || newTree(), state.master.records);
-  state.report = report;
+  const fullReport = compare(a || newTree(), state.working || b || newTree(), state.master.records);
+  state.report = fullReport;
   state.recommendations = state.working ? suggest(state.master.records, state.working) : [];
-  state.projects = deriveProjects(state.trees.pc, state.master.records, report, state.projectAssignments);
+  state.projects = deriveProjects(state.trees.pc, state.master.records, fullReport, state.projectAssignments);
+  state.projectOverlaps = computeProjectOverlaps(state.projects);
 
-  // tile counts
+  // If a project is focused, drop any stale focus that no longer exists.
+  if (state.activeProject && !state.projects.some((p) => p.id === state.activeProject)) {
+    state.activeProject = null;
+  }
+
+  // Resolve the active scope. When a project is focused, every visible tree
+  // and the report counts narrow to its CC scope; otherwise we show the full
+  // report and full trees.
+  const scope = state.activeProject ? state.projects.find((p) => p.id === state.activeProject) : null;
+  const scopeCodes = scope ? scope.ccCodes : null;
+  const report = scope ? filterReportByCcCodes(fullReport, scopeCodes) : fullReport;
+  const aDisplay = scope && a ? projectScopedTree(a, scopeCodes) : a;
+  const workingFull = state.working || b;
+  const workingDisplay = scope && workingFull ? projectScopedTree(workingFull, scopeCodes) : workingFull;
+  renderFocusBanner(scope, report);
+
+  // tile counts (reflect scope when focused)
   const counts = summarise(report);
   for (const k of Object.keys(counts)) {
     const e = document.getElementById('count-' + k);
@@ -282,18 +305,17 @@ function recompute() {
   }
 
   // Build per-tree highlight maps so diff highlights show on the trees
-  const hlA = buildHighlights(a, report, 'A');
+  const hlA = buildHighlights(aDisplay, report, 'A');
   const hlB = buildHighlights(b, report, 'B');
-  const hlW = buildHighlights(state.working, report, 'working');
+  const hlW = buildHighlights(workingDisplay, report, 'working');
 
-  if (a) renderTree($('#tree-A'), a, { editable: false, highlights: hlA });
+  if (aDisplay) renderTree($('#tree-A'), aDisplay, { editable: false, highlights: hlA });
   else $('#tree-A').innerHTML = '<div class="empty-state">Drop hierarchy A above.</div>';
   // Compare's middle pane shows the live "working" tree (B + your edits) so
   // hierarchy edits are reflected here in real time. Falls back to the raw B
   // upload if the user hasn't started a working tree yet.
-  const compareTree = state.working || b;
-  if (compareTree) {
-    renderTree($('#tree-B'), compareTree, {
+  if (workingDisplay) {
+    renderTree($('#tree-B'), workingDisplay, {
       editable: false,
       highlights: state.working ? hlW : hlB,
     });
@@ -301,11 +323,15 @@ function recompute() {
     $('#tree-B').innerHTML = '<div class="empty-state">Drop hierarchy B above.</div>';
   }
   if (state.working) {
+    // Editor: when focused, render a scoped read-only-ish view? For now keep
+    // it editable; users can only drop within the visible scope so they
+    // cannot accidentally move items out of scope by dragging.
+    const editorTree = scope ? projectScopedTree(state.working, scopeCodes) : state.working;
     if (state.hierarchyMode === 'table') {
-      renderWorkingTable($('#table-working'), state.working);
+      renderWorkingTable($('#table-working'), editorTree);
     } else {
-      renderTree($('#tree-working'), state.working, {
-        editable: true,
+      renderTree($('#tree-working'), editorTree, {
+        editable: !scope, // disable DnD edits when focused — scope view is read-only
         highlights: hlW,
         onChange: (movedId) => {
           pushHistory();
@@ -522,12 +548,10 @@ function renderRecommendations() {
 }
 
 // ---------- Projects (derive + render) ----------
-function deriveProjects(pcTree, masterRecords, report, projectAssignments) {
-  // Build code->profitCentre lookup from master.
-  const ccToPc = new Map();
-  for (const r of masterRecords) if (r.code && r.profitCentre) ccToPc.set(r.code, r.profitCentre);
-
-  const filterReportByCcCodes = (rep, codes) => ({
+// Hoisted: shared by deriveProjects and the active-scope filter in recompute.
+function filterReportByCcCodes(rep, codes) {
+  if (!codes) return rep;
+  return {
     newCC: rep.newCC.filter((x) => codes.has(x.code)),
     amendedCC: rep.amendedCC.filter((x) => codes.has(x.code)),
     deletedNodes: rep.deletedNodes.filter((x) => x.kind === 'leaf' ? codes.has(x.code) : false),
@@ -535,7 +559,48 @@ function deriveProjects(pcTree, masterRecords, report, projectAssignments) {
     missing: rep.missing.filter((m) => codes.has(m.code)),
     invalid: rep.invalid.filter((v) => codes.has(v.code)),
     newNodes: [], amendedNodes: [],
-  });
+  };
+}
+
+// CCs that appear in more than one project's scope. Returns Map<code, [names]>.
+function computeProjectOverlaps(projects) {
+  const counts = new Map();
+  for (const p of projects) {
+    if (p.id === '__unassigned__') continue;
+    for (const code of p.ccCodes) {
+      if (!counts.has(code)) counts.set(code, []);
+      counts.get(code).push(p.name);
+    }
+  }
+  const overlaps = new Map();
+  for (const [code, names] of counts) {
+    if (names.length > 1) overlaps.set(code, names);
+  }
+  return overlaps;
+}
+
+function setActiveProject(id) {
+  state.activeProject = state.activeProject === id ? null : id;
+  recompute();
+}
+
+function renderFocusBanner(scope, scopedReport) {
+  const banner = $('#focusBanner');
+  if (!banner) return;
+  if (!scope) { banner.hidden = true; return; }
+  banner.hidden = false;
+  $('#focusName').textContent = scope.name;
+  const totalChanges =
+    (scopedReport.newCC?.length || 0) +
+    (scopedReport.amendedCC?.length || 0) +
+    (scopedReport.deletedNodes?.length || 0);
+  $('#focusStats').textContent = ` · ${scope.ccCount} cost centres · ${totalChanges} changes in scope`;
+}
+
+function deriveProjects(pcTree, masterRecords, report, projectAssignments) {
+  // Build code->profitCentre lookup from master.
+  const ccToPc = new Map();
+  for (const r of masterRecords) if (r.code && r.profitCentre) ccToPc.set(r.code, r.profitCentre);
 
   // ---- User-uploaded project assignments take precedence ----
   // When a projects.csv has been provided, every row defines a project. CCs
@@ -668,6 +733,16 @@ function renderProjects() {
         <button class="btn btn-small" data-action="download-starter-projects">Download starter projects.csv</button>
       </div>
     </div>`;
+
+  // Overlap warnings — projects must not share cost centres.
+  if (state.projectOverlaps && state.projectOverlaps.size) {
+    out += `<div class="overlap-warning"><strong>${state.projectOverlaps.size} cost centre${state.projectOverlaps.size === 1 ? '' : 's'} appear in more than one project.</strong> Each cost centre should belong to exactly one project. Fix by editing the master ProfitCentre column or the uploaded projects.csv.</div>`;
+    out += '<div class="overlap-list">';
+    for (const [code, names] of state.projectOverlaps) {
+      out += `<div class="list-item overlap-item"><span class="badge badge-duplicate">overlap</span><code>${escape(code)}</code> <span class="meta">in: ${names.map(escape).join(', ')}</span></div>`;
+    }
+    out += '</div>';
+  }
   out += '<div class="project-grid">';
   for (const p of state.projects) {
     const f = p.filtered;
@@ -698,7 +773,10 @@ function renderProjects() {
       </details>
       <div class="project-foot">
         <span class="meta">${totalChanges} changes · ${totalQuality} quality issues</span>
-        <button class="btn btn-small" data-action="export-project" data-id="${escapeAttr(p.id)}">Download project ZIP</button>
+        <div class="project-foot-actions">
+          ${isOrphan ? '' : `<button class="btn btn-small ${state.activeProject === p.id ? 'btn-primary' : ''}" data-action="focus-project" data-id="${escapeAttr(p.id)}">${state.activeProject === p.id ? 'Restore full view' : 'Focus this project'}</button>`}
+          <button class="btn btn-small" data-action="export-project" data-id="${escapeAttr(p.id)}">Download ZIP</button>
+        </div>
       </div>
     </div>`;
   }
@@ -810,6 +888,8 @@ function handleSidebarClick(ev) {
     recompute();
   } else if (action === 'export-project') {
     exportProject(btn.dataset.id);
+  } else if (action === 'focus-project') {
+    setActiveProject(btn.dataset.id);
   } else if (action === 'download-starter-projects') {
     downloadStarterProjects();
   }
@@ -1405,6 +1485,11 @@ async function loadSessionFromFile(file) {
   }
 }
 
+function wireFocusBanner() {
+  const restore = $('#focusRestore');
+  if (restore) restore.addEventListener('click', () => setActiveProject(null));
+}
+
 function wireSessionButtons() {
   $('#saveSession').addEventListener('click', saveSession);
   const loader = $('#loadSession');
@@ -1426,6 +1511,7 @@ function init() {
   wireExports();
   wireWorkingActions();
   wireSessionButtons();
+  wireFocusBanner();
   $('#loadSamples').addEventListener('click', loadSamples);
   $('#clearAll').addEventListener('click', clearAll);
   setView('imports');
