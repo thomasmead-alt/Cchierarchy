@@ -26,13 +26,26 @@ function addNode(tree, partial) {
   };
   tree.nodes.set(id, node);
   if (!node.parentId) tree.rootIds.push(id);
+  tree._childIndex = null; // invalidate
   return node;
 }
 
+// Lazy parent->children index. Built on first call and reused until any
+// mutation invalidates it. Without this, childrenOf scans every node which
+// makes walk() O(n²) — painful past a few thousand nodes.
+function _buildChildIndex(tree) {
+  const idx = new Map();
+  for (const n of tree.nodes.values()) {
+    const arr = idx.get(n.parentId);
+    if (arr) arr.push(n); else idx.set(n.parentId, [n]);
+  }
+  tree._childIndex = idx;
+  return idx;
+}
+
 function childrenOf(tree, parentId) {
-  const out = [];
-  for (const n of tree.nodes.values()) if (n.parentId === parentId) out.push(n);
-  return out;
+  const idx = tree._childIndex || _buildChildIndex(tree);
+  return idx.get(parentId) || [];
 }
 
 function rootNodes(tree) {
@@ -66,6 +79,7 @@ function pathString(tree, node) {
 function moveNode(tree, nodeId, newParentId) {
   const node = tree.nodes.get(nodeId);
   if (!node) return;
+  tree._childIndex = null; // invalidate
   // detach from current
   if (!node.parentId) {
     tree.rootIds = tree.rootIds.filter((id) => id !== nodeId);
@@ -90,8 +104,11 @@ function moveNode(tree, nodeId, newParentId) {
 function deleteNode(tree, nodeId) {
   const node = tree.nodes.get(nodeId);
   if (!node) return;
-  // recursively delete children
-  for (const child of childrenOf(tree, nodeId)) deleteNode(tree, child.id);
+  // Snapshot children before mutating so the index invalidation doesn't bite
+  // mid-iteration.
+  const kids = childrenOf(tree, nodeId).slice();
+  tree._childIndex = null; // invalidate
+  for (const child of kids) deleteNode(tree, child.id);
   tree.nodes.delete(nodeId);
   tree.rootIds = tree.rootIds.filter((id) => id !== nodeId);
 }

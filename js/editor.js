@@ -150,9 +150,12 @@ function beginEdit(target, node, field, onChange) {
 }
 
 function wireSortable(container, tree, onChange) {
-  // Native HTML5 drag-and-drop, wired via delegation on the container so
-  // re-renders don't have to re-attach per-LI listeners (and we keep working
-  // after every drop, not just the first one).
+  // Native HTML5 drag-and-drop, wired via delegation on the container.
+  // We REBIND fresh listeners on every render so the closures always
+  // reference the current tree. Previously we used a sentinel attribute to
+  // bind once, but that captured a stale tree reference once state.working
+  // was replaced (load A then B, restore session, reset, etc.) and drops on
+  // any leaf whose id wasn't in the original tree silently no-op'd.
   let draggedId = null;
   let blocked = new Set();
 
@@ -171,17 +174,17 @@ function wireSortable(container, tree, onChange) {
     });
   };
 
-  // Mark every LI draggable. Re-applied on each (re)render call.
+  // Mark every LI draggable on this render.
   for (const li of container.querySelectorAll('li[data-id]')) {
     li.setAttribute('draggable', 'true');
   }
 
-  // Avoid double-binding the delegated handlers when wireSortable runs after
-  // re-renders. Mark the container with a sentinel attribute.
-  if (container.dataset.dndWired === '1') return;
-  container.dataset.dndWired = '1';
+  // Detach previously attached handlers (if any) before adding new ones, so
+  // we don't accumulate duplicate listeners across renders.
+  const prev = container._dndCleanup;
+  if (typeof prev === 'function') prev();
 
-  container.addEventListener('dragstart', (e) => {
+  const onDragStart = (e) => {
     const li = e.target.closest('li[data-id]');
     if (!li || !container.contains(li)) return;
     draggedId = li.dataset.id;
@@ -190,22 +193,19 @@ function wireSortable(container, tree, onChange) {
     try { e.dataTransfer.setData('text/plain', draggedId); } catch (_) {}
     li.classList.add('drag-source');
     container.classList.add('dragging');
-    // Pre-mark forbidden ULs (descendants of the dragged node).
     for (const ul of container.querySelectorAll('ul')) {
       const tp = ul.dataset.parentId === '__root__' ? null : ul.dataset.parentId;
       if (tp && blocked.has(tp)) ul.classList.add('drag-block');
     }
-  });
-
-  container.addEventListener('dragend', () => {
+  };
+  const onDragEnd = () => {
     container.classList.remove('dragging');
     container.querySelectorAll('.drag-source').forEach((el) => el.classList.remove('drag-source'));
     clearHighlights();
     draggedId = null;
     blocked = new Set();
-  });
-
-  container.addEventListener('dragover', (e) => {
+  };
+  const onDragOver = (e) => {
     if (!draggedId) return;
     const ul = e.target.closest('ul');
     if (!ul || !container.contains(ul)) return;
@@ -216,9 +216,8 @@ function wireSortable(container, tree, onChange) {
     }
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
-  });
-
-  container.addEventListener('dragenter', (e) => {
+  };
+  const onDragEnter = (e) => {
     if (!draggedId) return;
     const ul = e.target.closest('ul');
     if (!ul || !container.contains(ul)) return;
@@ -226,15 +225,13 @@ function wireSortable(container, tree, onChange) {
     if (targetParent && blocked.has(targetParent)) return;
     container.querySelectorAll('.drag-over').forEach((el) => el.classList.remove('drag-over'));
     ul.classList.add('drag-over');
-  });
-
-  container.addEventListener('dragleave', (e) => {
+  };
+  const onDragLeave = (e) => {
     const ul = e.target.closest('ul');
     if (!ul || !container.contains(ul)) return;
     if (e.target === ul) ul.classList.remove('drag-over');
-  });
-
-  container.addEventListener('drop', (e) => {
+  };
+  const onDrop = (e) => {
     if (!draggedId) return;
     const ul = e.target.closest('ul');
     if (!ul || !container.contains(ul)) return;
@@ -249,7 +246,22 @@ function wireSortable(container, tree, onChange) {
     container.classList.remove('dragging');
     clearHighlights();
     onChange(movedId);
-  });
+  };
+
+  container.addEventListener('dragstart', onDragStart);
+  container.addEventListener('dragend', onDragEnd);
+  container.addEventListener('dragover', onDragOver);
+  container.addEventListener('dragenter', onDragEnter);
+  container.addEventListener('dragleave', onDragLeave);
+  container.addEventListener('drop', onDrop);
+  container._dndCleanup = () => {
+    container.removeEventListener('dragstart', onDragStart);
+    container.removeEventListener('dragend', onDragEnd);
+    container.removeEventListener('dragover', onDragOver);
+    container.removeEventListener('dragenter', onDragEnter);
+    container.removeEventListener('dragleave', onDragLeave);
+    container.removeEventListener('drop', onDrop);
+  };
 }
 
 // Briefly highlight a node after a re-render so the user can see where their
