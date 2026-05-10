@@ -1544,7 +1544,11 @@ function autosave() {
         localStorage.removeItem(LS_KEY);
         return;
       }
-      const json = JSON.stringify(serializeSession());
+      // Strip session-local UI state so a refresh always starts unfocused.
+      // (Explicit Save Session JSON keeps the focus context intact.)
+      const snapshot = serializeSession();
+      delete snapshot.activeProject;
+      const json = JSON.stringify(snapshot);
       localStorage.setItem(LS_KEY, json);
     } catch (err) {
       // Quota exceeded or other LS errors — fall back silently; the explicit

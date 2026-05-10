@@ -148,7 +148,8 @@ h4 { font-size: 12px; margin: 0 0 4px; font-weight: 600; color: var(--text-2); t
    =============================================================== */
 .workspace {
   display: grid;
-  grid-template-rows: var(--topbar-h) 1fr var(--statusbar-h);
+  /* topbar | focus-banner (auto, 0 when hidden) | views (1fr) | statusbar */
+  grid-template-rows: var(--topbar-h) auto 1fr var(--statusbar-h);
   min-width: 0;
   overflow: hidden;
 }
