@@ -1,28 +1,37 @@
-// Build recommended parent-node groupings from the master list's
-// ResponsiblePerson column.
+// Manager-placement recommender. For each ResponsiblePerson with ≥2 cost
+// centres in the working tree, identify the one at the shallowest position
+// in the hierarchy (the "manager" CC). Suggest moving every other CC of
+// that person UNDER the manager so the manager's reports actually report
+// to them in the cost-centre structure too.
 //
-// A suggestion is emitted when ≥2 cost centres share a responsible person
-// AND those cost centres are NOT already all siblings under a single parent
-// in the working tree.
+// Tie-break: when multiple owned CCs share the shallowest depth, pick the
+// alphabetically first by code so the choice is deterministic.
+//
+// Skipped when:
+//   - person has only one CC in the working tree;
+//   - all of the person's other CCs are already descendants of the manager.
 
 
 var norm = (s) => (s == null ? '' : String(s).trim());
 
-function buildLeafLookup(workingTree) {
-  // code -> { node, parentId }
-  const out = new Map();
-  walk(workingTree, (node) => {
-    if (node.kind === 'leaf' && node.code) {
-      // multiple occurrences possible; record the first one. duplicates are
-      // surfaced separately and shouldn't block recommendations.
-      if (!out.has(node.code)) out.set(node.code, node);
+function suggest(masterRecords, workingTree) {
+  if (!workingTree || workingTree.nodes.size === 0) return [];
+
+  // Build code -> node lookup, plus a depth-from-root for every node.
+  // Note: we accept BOTH leaves and parent nodes with codes, because a
+  // previously-applied manager-placement promotes the manager CC to kind
+  // 'parent' but it should still be recognised as the same person's CC.
+  const codeToNode = new Map();
+  const depthOf = new Map();
+  walk(workingTree, (node, depth) => {
+    depthOf.set(node.id, depth);
+    if (node.code && !codeToNode.has(node.code)) {
+      codeToNode.set(node.code, node);
     }
   });
-  return out;
-}
 
-function suggest(masterRecords, workingTree) {
-  const groups = new Map(); // person -> [masterRecord]
+  // Group master records by responsible person.
+  const groups = new Map();
   for (const r of masterRecords) {
     const person = norm(r.responsiblePerson);
     if (!person) continue;
@@ -30,49 +39,58 @@ function suggest(masterRecords, workingTree) {
     groups.get(person).push(r);
   }
 
-  const leafLookup = buildLeafLookup(workingTree);
-  const suggestions = [];
+  const isUnder = (descendant, ancestorId) => {
+    let cur = descendant.parentId ? workingTree.nodes.get(descendant.parentId) : null;
+    while (cur) {
+      if (cur.id === ancestorId) return true;
+      cur = cur.parentId ? workingTree.nodes.get(cur.parentId) : null;
+    }
+    return false;
+  };
 
+  const out = [];
   for (const [person, members] of groups) {
     if (members.length < 2) continue;
 
-    // What parents do these cost centres currently sit under in the working tree?
-    const presentNodes = members
-      .map((m) => leafLookup.get(m.code))
-      .filter(Boolean);
-    const presentCodes = presentNodes.map((n) => n.code);
-    if (presentNodes.length < 2) continue;
+    // Members that are actually placed in the working tree.
+    const present = members
+      .map((m) => ({ record: m, node: codeToNode.get(m.code) }))
+      .filter((x) => !!x.node);
+    if (present.length < 2) continue;
 
-    const parentIds = new Set(presentNodes.map((n) => n.parentId || '__root__'));
-    if (parentIds.size === 1) {
-      // already siblings under a single parent — nothing to suggest
-      continue;
-    }
+    // Sort by depth ascending (shallowest first), then by code.
+    present.sort((a, b) => {
+      const da = depthOf.get(a.node.id) ?? 99;
+      const db = depthOf.get(b.node.id) ?? 99;
+      return da - db || (a.record.code || '').localeCompare(b.record.code || '');
+    });
+    const manager = present[0];
 
-    // codes from master that are not yet placed in the working tree at all
-    const missingFromTree = members
-      .filter((m) => !leafLookup.has(m.code))
-      .map((m) => m.code);
+    const others = present.slice(1);
+    const toMove = others.filter((o) => !isUnder(o.node, manager.node.id));
+    if (toMove.length === 0) continue; // already structured correctly
 
-    suggestions.push({
-      id: `rec_${person.replace(/\s+/g, '_').toLowerCase()}`,
+    const alreadyPlaced = others.filter((o) => isUnder(o.node, manager.node.id)).map((o) => o.record.code);
+    const unplaced = members.filter((m) => !codeToNode.has(m.code)).map((m) => m.code);
+
+    out.push({
+      id: `mgr_${person.replace(/[^a-z0-9]+/gi, '_').toLowerCase()}`,
+      kind: 'manager-placement',
       responsiblePerson: person,
-      suggestedParentName: `${person}'s cost centres`,
-      memberCodes: members.map((m) => m.code),
-      placedCodes: presentCodes,
-      unplacedCodes: missingFromTree,
-      currentParentCount: parentIds.size,
+      managerCode: manager.record.code,
+      managerName: manager.node.name,
+      managerDepth: depthOf.get(manager.node.id),
+      moveCodes: toMove.map((o) => o.record.code),
+      alreadyPlacedCodes: alreadyPlaced,
+      unplacedCodes: unplaced,
       rationale:
-        `${members.length} cost centres share '${person}' as responsible person ` +
-        `but currently span ${parentIds.size} different parent(s) in the working tree.`,
+        `${person} is responsible for ${members.length} cost centres. ` +
+        `${manager.record.code} (${manager.node.name}) sits at the shallowest position in the hierarchy; ` +
+        `${toMove.length} of their other CC${toMove.length === 1 ? '' : 's'} should sit beneath it.`,
     });
   }
 
-  // sort: most-impactful first (more members, more current parents)
-  suggestions.sort(
-    (a, b) =>
-      b.memberCodes.length - a.memberCodes.length ||
-      b.currentParentCount - a.currentParentCount,
-  );
-  return suggestions;
+  // Most-impactful (largest move count) first.
+  out.sort((a, b) => b.moveCodes.length - a.moveCodes.length);
+  return out;
 }

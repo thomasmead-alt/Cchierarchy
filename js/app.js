@@ -561,22 +561,25 @@ function renderRecommendations() {
     return;
   }
   if (!state.recommendations.length) {
-    c.innerHTML = empty('No recommendations — every responsible-person group is already grouped.');
+    c.innerHTML = empty('No recommendations — every responsible person\'s CCs are already nested under their shallowest CC.');
     return;
   }
-  let out = `<div class="section-heading">Suggested groupings (${state.recommendations.length})</div>`;
+  let out = `<div class="section-heading">Manager placement (${state.recommendations.length})</div>`;
   for (const s of state.recommendations) {
     out += `<div class="list-item">
-      <strong>${escape(s.suggestedParentName)}</strong>
+      <strong>${escape(s.responsiblePerson)}</strong>
+      <div class="meta">Manager: <code>${escape(s.managerCode)}</code> ${escape(s.managerName)}</div>
       <div class="meta">${escape(s.rationale)}</div>
-      <div class="meta">In tree: ${s.placedCodes.length}${s.unplacedCodes.length ? ` · Unplaced: ${s.unplacedCodes.length}` : ''}</div>
-      <div class="meta">${s.memberCodes.map(escape).join(', ')}</div>
+      <div class="meta">Move: ${s.moveCodes.map((c) => `<code>${escape(c)}</code>`).join(' ')}</div>
+      ${s.alreadyPlacedCodes.length ? `<div class="meta">Already correctly under manager: ${s.alreadyPlacedCodes.length}</div>` : ''}
+      ${s.unplacedCodes.length ? `<div class="meta">Not yet in working tree: ${s.unplacedCodes.length}</div>` : ''}
       <div class="actions">
         <button class="btn btn-small" data-action="apply-rec" data-id="${escapeAttr(s.id)}">Apply</button>
-        <button class="btn btn-small" data-action="apply-rec-with-unplaced" data-id="${escapeAttr(s.id)}">Apply + add unplaced</button>
+        ${s.unplacedCodes.length ? `<button class="btn btn-small" data-action="apply-rec-with-unplaced" data-id="${escapeAttr(s.id)}">Apply + add unplaced</button>` : ''}
       </div>
     </div>`;
   }
+  out += `<div class="actions" style="margin-top:8px"><button class="btn btn-small" data-action="apply-rec-all">Apply all</button></div>`;
   c.innerHTML = out;
 }
 
@@ -899,6 +902,14 @@ function handleSidebarClick(ev) {
     pushHistory();
     applyRecommendation(rec, action === 'apply-rec-with-unplaced');
     recompute();
+  } else if (action === 'apply-rec-all') {
+    if (!state.working || !state.recommendations.length) return;
+    pushHistory();
+    // Process the longest-move recs first; each application can change the
+    // shallowest position of remaining recs but our recommendations array is
+    // already sorted by impact and is a snapshot from the last recompute.
+    for (const rec of state.recommendations) applyRecommendation(rec, false);
+    recompute();
   } else if (action === 'resolve-dup') {
     const code = btn.dataset.code;
     const keepSource = btn.dataset.keepSource;
@@ -956,30 +967,29 @@ function downloadStarterProjects() {
 
 function applyRecommendation(rec, addUnplaced) {
   const t = state.working;
-  // Create a new parent at root.
-  const parent = addNode(t, {
-    id: genId('rec'),
-    name: rec.suggestedParentName,
-    code: '',
-    parentId: null,
-    kind: 'parent',
-    source: 'recommended',
-  });
-  // Move every leaf with a matching code under it.
-  for (const code of rec.memberCodes) {
-    const node = findByCode(t, code);
-    if (node) {
-      moveNode(t, node.id, parent.id);
-    } else if (addUnplaced) {
-      const m = state.master.records.find((r) => r.code === code);
-      addNode(t, {
-        id: genId('mr'),
-        code,
-        name: m?.name || code,
-        parentId: parent.id,
-        kind: 'leaf',
-        source: 'recommended',
-      });
+  if (!t || !rec) return;
+  if (rec.kind === 'manager-placement') {
+    const manager = findByCode(t, rec.managerCode);
+    if (!manager) return;
+    // Promote the manager CC to a parent so it can hold children. We keep its
+    // code so it still appears as a leaf-with-children in exports.
+    if (manager.kind === 'leaf') manager.kind = 'parent';
+    for (const code of rec.moveCodes) {
+      const node = findByCode(t, code);
+      if (node && node.id !== manager.id) moveNode(t, node.id, manager.id);
+    }
+    if (addUnplaced && rec.unplacedCodes && rec.unplacedCodes.length) {
+      for (const code of rec.unplacedCodes) {
+        const m = state.master.records.find((r) => r.code === code);
+        addNode(t, {
+          id: genId('mr'),
+          code,
+          name: m?.name || code,
+          parentId: manager.id,
+          kind: 'leaf',
+          source: 'recommended',
+        });
+      }
     }
   }
 }
