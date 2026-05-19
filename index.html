@@ -405,7 +405,10 @@
 
   <!-- Load app modules as classic scripts in dependency order so the page
        also works when opened directly via file:// (ES modules don't load
-       cross-origin from file:// in most browsers). -->
+       cross-origin from file:// in most browsers).
+       util.js MUST come first — it owns the shared `norm`, `escape`,
+       `escapeAttr`, `cssEscape` helpers that the others rely on. -->
+  <script src="js/util.js"></script>
   <script src="js/model.js"></script>
   <script src="js/csv.js"></script>
   <script src="js/diff.js"></script>

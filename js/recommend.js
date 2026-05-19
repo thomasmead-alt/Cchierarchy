@@ -12,7 +12,6 @@
 //   - all of the person's other CCs are already descendants of the manager.
 
 
-var norm = (s) => (s == null ? '' : String(s).trim());
 
 function suggest(masterRecords, workingTree) {
   if (!workingTree || workingTree.nodes.size === 0) return [];

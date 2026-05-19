@@ -18,18 +18,32 @@ function el(tag, attrs = {}, children = []) {
   return node;
 }
 
-// flags: { highlights: Map<nodeId, 'new'|'amended'|'deleted'|'duplicate'|'invalid'|'recommended'> }
+// opts:
+//   editable        — render edit affordances (DnD, +/×, rename)
+//   highlights      — Map<nodeId, classSuffix> for diff colour-coding
+//   onChange        — callback(movedId) after a mutation
+//   scopeIds        — optional Set<id>. When provided, nodes NOT in the set
+//                     are skipped at render time. The underlying tree is
+//                     still the live one, so edits via DnD / inline rename
+//                     commit to it — the filter is purely visual.
 function renderTree(container, tree, opts = {}) {
-  const { editable = false, highlights = new Map(), onChange = () => {} } = opts;
+  const {
+    editable = false,
+    highlights = new Map(),
+    onChange = () => {},
+    scopeIds = null,
+  } = opts;
   container.innerHTML = '';
   if (!tree || tree.nodes.size === 0) {
     container.appendChild(el('div', { class: 'empty-state' }, 'No data loaded.'));
     return;
   }
 
+  const ctx = { editable, highlights, onChange, scopeIds };
   const rootUl = el('ul', { class: 'tree-root', dataset: { parentId: '__root__' } });
   for (const node of rootNodes(tree)) {
-    rootUl.appendChild(renderNode(tree, node, { editable, highlights, onChange }));
+    if (scopeIds && !scopeIds.has(node.id)) continue;
+    rootUl.appendChild(renderNode(tree, node, ctx));
   }
   container.appendChild(rootUl);
 
@@ -38,7 +52,10 @@ function renderTree(container, tree, opts = {}) {
 
 function renderNode(tree, node, ctx) {
   const li = el('li', { dataset: { id: node.id } });
-  const children = childrenOf(tree, node.id);
+  const allChildren = childrenOf(tree, node.id);
+  const children = ctx.scopeIds
+    ? allChildren.filter((c) => ctx.scopeIds.has(c.id))
+    : allChildren;
   const expanded = true;
 
   const toggle = el('span', {
@@ -53,7 +70,7 @@ function renderNode(tree, node, ctx) {
   if (ctx.editable) {
     [codeEl, nameEl].forEach((target, i) => {
       target.title = 'Click to edit';
-      target.addEventListener('dblclick', () => beginEdit(target, node, i === 0 ? 'code' : 'name', ctx.onChange));
+      target.addEventListener('dblclick', () => beginEdit(target, tree, node, i === 0 ? 'code' : 'name', ctx.onChange));
       target.addEventListener('click', (ev) => {
         if (ev.detail === 2) return; // dblclick handler will fire
       });
@@ -77,15 +94,8 @@ function renderNode(tree, node, ctx) {
           const code = prompt('Code for new node (blank for parent group):', '');
           const name = prompt('Name:', code || 'New node');
           if (name == null) return;
-          addNode(tree, {
-            id: genId('m'),
-            code: code || '',
-            name,
-            parentId: node.id,
-            kind: code ? 'leaf' : 'parent',
-            source: 'manual',
-          });
-          if (node.kind === 'leaf') node.kind = 'parent';
+          if (code) addLeafUnder(tree, node.id, { code, name, source: 'manual' });
+          else addParentUnder(tree, node.id, { name, source: 'manual' });
           ctx.onChange();
         },
       }, '+ child'),
@@ -115,7 +125,7 @@ function renderNode(tree, node, ctx) {
   return li;
 }
 
-function beginEdit(target, node, field, onChange) {
+function beginEdit(target, tree, node, field, onChange) {
   const original = node[field] || '';
   target.contentEditable = 'true';
   target.focus();
@@ -133,7 +143,7 @@ function beginEdit(target, node, field, onChange) {
     if (commit) {
       const v = target.textContent.trim();
       if (v !== original) {
-        node[field] = v;
+        renameNode(tree, node.id, { [field]: v });
         onChange();
       }
     } else {
@@ -278,9 +288,4 @@ function flashMoved(container, nodeId) {
     node.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   }
   setTimeout(() => node.classList.remove('drag-flash'), 900);
-}
-
-function cssEscape(s) {
-  if (window.CSS && CSS.escape) return CSS.escape(s);
-  return String(s).replace(/[^a-zA-Z0-9_-]/g, (c) => '\\' + c);
 }

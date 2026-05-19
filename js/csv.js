@@ -5,7 +5,6 @@
 //   - "parentChild" : Code, Name, ParentCode
 // Master list:        Code, Name, ResponsiblePerson, ...
 
-var norm = (s) => (s == null ? '' : String(s).trim());
 const lower = (s) => norm(s).toLowerCase().replace(/\s+/g, '');
 
 // --- Hand-rolled CSV parsing -------------------------------------------------

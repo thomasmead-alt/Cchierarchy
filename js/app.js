@@ -329,15 +329,17 @@ function recompute() {
     $('#tree-B').innerHTML = '<div class="empty-state">Drop hierarchy B above.</div>';
   }
   if (state.working) {
-    // Editor: when focused, render a scoped read-only-ish view? For now keep
-    // it editable; users can only drop within the visible scope so they
-    // cannot accidentally move items out of scope by dragging.
-    const editorTree = scope ? projectScopedTree(state.working, scopeCodes) : state.working;
+    // Editor ALWAYS receives the live state.working — never a clone — so
+    // edits commit straight through. Focus filtering is a render-time
+    // visibility set (scopeIds), keeping the editable surface narrowed to
+    // the project's CCs while the underlying tree stays whole.
+    const editorScopeIds = scope ? computeScopeIds(state.working, scopeCodes) : null;
     if (state.hierarchyMode === 'table') {
-      renderWorkingTable($('#table-working'), editorTree);
+      renderWorkingTable($('#table-working'), state.working, editorScopeIds);
     } else {
-      renderTree($('#tree-working'), editorTree, {
-        editable: !scope, // disable DnD edits when focused — scope view is read-only
+      renderTree($('#tree-working'), state.working, {
+        editable: true,
+        scopeIds: editorScopeIds,
         highlights: hlW,
         onChange: (movedId) => {
           pushHistory();
@@ -439,8 +441,11 @@ function renderSidebar() {
 // Approval helpers ---
 function approvalKey(type, identifier) { return `${type}::${identifier}`; }
 function getApproval(type, identifier) { return state.approvals.get(approvalKey(type, identifier)) || ''; }
-// Bridge for export.js — keeps that file independent of app state.
-if (typeof window !== 'undefined') window.getApprovalStatus = getApproval;
+// Context object handed to export.js so it can ask about approval status
+// without reaching into app state via a global.
+function exportCtx() {
+  return { approvalOf: (type, id) => getApproval(type, id) || 'pending' };
+}
 function setApproval(type, identifier, status) {
   const k = approvalKey(type, identifier);
   if (!status) state.approvals.delete(k);
@@ -838,32 +843,38 @@ function renderProjects() {
 
 // Build a sub-tree from `tree` containing only the leaves whose codes are in
 // ccCodes plus their ancestors. Renderable with renderTree like any other tree.
-function projectScopedTree(tree, ccCodes) {
-  const out = newTree();
-  if (!tree || !ccCodes || !ccCodes.size) return out;
-  const idsToInclude = new Set();
+// Set of node IDs that should be visible when scoping to the given CCs:
+// every leaf whose code is in ccCodes plus its full ancestor chain.
+// Used as a render-time visibility filter — the underlying tree is never
+// cloned, so edits made in scope still commit to it.
+function computeScopeIds(tree, ccCodes) {
+  const ids = new Set();
+  if (!tree || !ccCodes || !ccCodes.size) return ids;
   walk(tree, (node) => {
     if (node.kind === 'leaf' && ccCodes.has(node.code)) {
       let cur = node;
       while (cur) {
-        idsToInclude.add(cur.id);
+        ids.add(cur.id);
         cur = cur.parentId ? tree.nodes.get(cur.parentId) : null;
       }
     }
   });
+  return ids;
+}
+
+// Kept for read-only A/B panes and per-project sub-tree cards where a
+// snapshot clone is fine (no edits happen there). The editable working
+// tree uses computeScopeIds + renderTree(scopeIds:) instead — see F1.
+function projectScopedTree(tree, ccCodes) {
+  const out = newTree();
+  if (!tree || !ccCodes || !ccCodes.size) return out;
+  const idsToInclude = computeScopeIds(tree, ccCodes);
   for (const id of idsToInclude) {
     const n = tree.nodes.get(id);
     if (n) out.nodes.set(id, { ...n });
   }
-  // Also collect leaves that are in scope but their immediate parent might not
-  // already be a "parent" kind (e.g., recommended single-leaf groups).
   out.rootIds = tree.rootIds.filter((id) => idsToInclude.has(id));
   return out;
-}
-
-function cssEscape(s) {
-  if (typeof CSS !== 'undefined' && CSS.escape) return CSS.escape(s);
-  return String(s).replace(/[^a-zA-Z0-9_-]/g, (c) => '\\' + c);
 }
 
 function exportProject(projectId) {
@@ -872,7 +883,7 @@ function exportProject(projectId) {
   const slug = (p.name || 'project').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
   // Reuse buildAllCsvs but feed it a fake report whose lists are the filtered ones.
   const fakeReport = { ...state.report, ...p.filtered };
-  const files = buildAllCsvs(fakeReport);
+  const files = buildAllCsvs(fakeReport, exportCtx());
   // Add a manifest CSV listing the cost centres in scope, useful for review.
   const manifestRows = [...p.ccCodes].sort().map((code) => {
     const m = state.master.records.find((r) => r.code === code) || {};
@@ -882,12 +893,8 @@ function exportProject(projectId) {
   downloadZip(`project_${slug}.zip`, files);
 }
 
-function escape(s) {
-  return String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({
-    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
-  }[c]));
-}
-function escapeAttr(s) { return escape(s).replace(/`/g, '&#96;'); }
+// escape / escapeAttr / cssEscape live in util.js. empty() is the only
+// rendering primitive specific to this view layer.
 function empty(msg) { return `<div class="empty-state">${escape(msg)}</div>`; }
 
 // ---------- Sidebar action handlers (event delegation) ----------
@@ -994,10 +1001,16 @@ function applyRecommendation(rec, addUnplaced) {
   }
 }
 
+// "Keep A" (keepSource = 'A'): reparent the working leaf to match A's path.
+// "Keep B" (keepSource = 'B'): keep the working leaf where it is, dedup any
+//   extra in-working copies of the same code.
+// If A's parent path doesn't exist in working, prompt before auto-creating
+// the missing parent chain.
 function resolveDuplicate(code, keepSource, keepPath) {
-  // Within the working tree, keep the leaf whose parentPath matches keepPath
-  // and delete the other occurrences. The keepSource hint is just for UX.
   const t = state.working;
+  if (!t) return;
+
+  // All occurrences of this code as leaves in working.
   const occs = [];
   walk(t, (node, _depth, path) => {
     if (node.kind === 'leaf' && node.code === code) {
@@ -1005,10 +1018,39 @@ function resolveDuplicate(code, keepSource, keepPath) {
       occs.push({ node, parentPath: p });
     }
   });
-  if (occs.length <= 1) return;
-  let kept = occs.find((o) => o.parentPath === keepPath);
-  if (!kept) kept = occs[0];
-  for (const o of occs) if (o.node.id !== kept.node.id) deleteNode(t, o.node.id);
+  if (!occs.length) {
+    setStatus(`Cost centre ${code} is not in the working tree; nothing to resolve.`, 'error');
+    return;
+  }
+
+  if (keepSource === 'A') {
+    // Ensure a parent matching keepPath exists in working, then move the
+    // first occurrence under it. Delete any further duplicates.
+    let targetParent = findParentByPath(t, keepPath);
+    if (!targetParent) {
+      const ok = confirm(`Target parent "${keepPath}" doesn't exist in the working tree.\n\nCreate the missing parent chain?`);
+      if (!ok) {
+        setStatus(`Skipped: ${code} still in original position.`, '');
+        return;
+      }
+      targetParent = ensurePath(t, keepPath, { source: 'manual' });
+    }
+    const kept = occs[0];
+    if (targetParent && kept.node.parentId !== targetParent.id) {
+      moveNode(t, kept.node.id, targetParent.id);
+    }
+    dedupeCodeKeeping(t, code, kept.node.id);
+    setStatus(`Kept A's placement for ${code}: under "${keepPath}".`, 'ok');
+  } else {
+    // keepSource === 'B' — keep the working occurrence whose parent path
+    // matches keepPath (or the first one if none matches), drop duplicates.
+    let kept = occs.find((o) => o.parentPath === keepPath) || occs[0];
+    const removed = dedupeCodeKeeping(t, code, kept.node.id);
+    setStatus(removed
+      ? `Kept B's placement for ${code} and removed ${removed} duplicate${removed === 1 ? '' : 's'}.`
+      : `${code} already unique in the working tree.`,
+      'ok');
+  }
 }
 
 // ---------- Filtering via tiles ----------
@@ -1071,7 +1113,7 @@ function wireTiles() {
 function wireExports() {
   $('#exportZip').addEventListener('click', async () => {
     if (!state.report) { setStatus('Nothing to export yet.', 'error'); return; }
-    const files = buildAllCsvs(state.report);
+    const files = buildAllCsvs(state.report, exportCtx());
     files['working_hierarchy.csv'] = buildWorkingHierarchyCsv(state.working);
     await downloadZip('cost_centre_diff.zip', files);
     setStatus('ZIP downloaded.', 'ok');
@@ -1084,7 +1126,7 @@ function wireExports() {
       if (name === 'working_hierarchy') {
         body = buildWorkingHierarchyCsv(state.working);
       } else {
-        body = buildCsv(name, state.report);
+        body = buildCsv(name, state.report, exportCtx());
       }
       downloadString(`${name}.csv`, body);
     });
@@ -1094,12 +1136,17 @@ function wireExports() {
 // --- Tabular hierarchy editor ----------------------------------------------
 // Flat editable table. Bulk reparent via checkbox-select + parent picker,
 // inline rename of code/name, per-row delete, search filter.
-function renderWorkingTable(container, tree) {
+// `tree` is ALWAYS the live state.working. `scopeIds` (optional) restricts
+// which rows are visible in the table; mutations go to the live tree so
+// edits persist when the user later removes the focus filter.
+function renderWorkingTable(container, tree, scopeIds) {
   container.innerHTML = '';
-  // Build the parent options once
+  // Build parent options. When scoped, only offer in-scope parents so the
+  // user can't accidentally re-parent into something they can't see.
   const parentChoices = [{ id: '__root__', label: '— root —' }];
   walk(tree, (node, _depth, path) => {
     if (node.kind === 'parent') {
+      if (scopeIds && !scopeIds.has(node.id)) return;
       parentChoices.push({
         id: node.id,
         label: path.map((n) => n.name || n.code).join(' / '),
@@ -1107,9 +1154,10 @@ function renderWorkingTable(container, tree) {
     }
   });
 
-  // Build rows: every node, sorted by parent path then name
+  // Build rows: every node in scope, with full ancestor-path display.
   const rows = [];
   walk(tree, (node, depth, path) => {
+    if (scopeIds && !scopeIds.has(node.id)) return;
     rows.push({
       node,
       depth,
@@ -1177,7 +1225,7 @@ function renderWorkingTable(container, tree) {
   // Event wiring (delegated)
   container.querySelector('.table-filter').addEventListener('input', (e) => {
     container.dataset.filter = e.target.value;
-    renderWorkingTable(container, tree);
+    renderWorkingTable(container, tree, scopeIds);
     e.target.focus();
     e.target.setSelectionRange(e.target.value.length, e.target.value.length);
   });
@@ -1188,7 +1236,7 @@ function renderWorkingTable(container, tree) {
     } else {
       container.dataset.selected = '';
     }
-    renderWorkingTable(container, tree);
+    renderWorkingTable(container, tree, scopeIds);
   });
 
   container.querySelectorAll('.row-check').forEach((cb) => {
@@ -1198,7 +1246,7 @@ function renderWorkingTable(container, tree) {
       const ids = new Set((container.dataset.selected || '').split(',').filter(Boolean));
       if (cb.checked) ids.add(id); else ids.delete(id);
       container.dataset.selected = [...ids].join(',');
-      renderWorkingTable(container, tree);
+      renderWorkingTable(container, tree, scopeIds);
     });
   });
 
@@ -1231,7 +1279,7 @@ function renderWorkingTable(container, tree) {
       // Refuse cycles
       if (newParent && wouldCycle(tree, id, newParent)) {
         alert('Cannot move a node under itself or its own descendants.');
-        renderWorkingTable(container, tree);
+        renderWorkingTable(container, tree, scopeIds);
         return;
       }
       pushHistory();

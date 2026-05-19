@@ -1,42 +1,36 @@
 // Build CSV files from the comparison report and trigger downloads.
 // Hand-rolled minimal STORED-only ZIP writer — no external library.
 
-// Approval lookup is provided by app.js via window.getApprovalStatus(type, id)
-// — kept loose so this file doesn't depend on app state directly.
-function _approval(type, id) {
-  try {
-    if (typeof window !== 'undefined' && typeof window.getApprovalStatus === 'function') {
-      return window.getApprovalStatus(type, id) || 'pending';
-    }
-  } catch (_) {}
-  return 'pending';
-}
+// All export functions accept an optional `ctx` argument:
+//   ctx.approvalOf(type, identifier) → 'approved' | 'rejected' | 'pending'
+// App.js supplies this; tests can supply a stub. Default returns 'pending'.
+const _defaultCtx = { approvalOf: () => 'pending' };
 
 const FILES = {
   new_cost_centres: {
-    rows: (r) => r.newCC.map((x) => ({ ...x, status: _approval('newCC', x.code) })),
+    rows: (r, ctx) => r.newCC.map((x) => ({ ...x, status: ctx.approvalOf('newCC', x.code) })),
     headers: ['status', 'code', 'name', 'parentPath', 'responsiblePerson'],
   },
   amended_cost_centres: {
-    rows: (r) => r.amendedCC.map((x) => ({ ...x, status: _approval('amendedCC', x.code) })),
+    rows: (r, ctx) => r.amendedCC.map((x) => ({ ...x, status: ctx.approvalOf('amendedCC', x.code) })),
     headers: ['status', 'code', 'oldName', 'newName', 'oldParentPath', 'newParentPath', 'changeType'],
   },
   new_nodes: {
-    rows: (r) => r.newNodes.map((x) => ({ ...x, status: _approval('newNode', x.path) })),
+    rows: (r, ctx) => r.newNodes.map((x) => ({ ...x, status: ctx.approvalOf('newNode', x.path) })),
     headers: ['status', 'path', 'name', 'code', 'childCount'],
   },
   amended_nodes: {
-    rows: (r) => r.amendedNodes.map((x) => ({ ...x, status: _approval('amendedNode', x.path) })),
+    rows: (r, ctx) => r.amendedNodes.map((x) => ({ ...x, status: ctx.approvalOf('amendedNode', x.path) })),
     headers: ['status', 'path', 'oldName', 'newName', 'renamed', 'addedChildren', 'removedChildren'],
   },
   deleted_nodes: {
-    rows: (r) => r.deletedNodes.map((x) => ({ ...x, status: _approval('deletedNode', x.kind === 'leaf' ? x.code : x.path) })),
+    rows: (r, ctx) => r.deletedNodes.map((x) => ({ ...x, status: ctx.approvalOf('deletedNode', x.kind === 'leaf' ? x.code : x.path) })),
     headers: ['status', 'kind', 'path', 'code', 'name', 'parentPath'],
   },
   duplicates: {
-    rows: (r) => r.duplicates.flatMap((d) =>
+    rows: (r, ctx) => r.duplicates.flatMap((d) =>
       d.assignments.map((a) => ({
-        status: _approval('dup', d.code),
+        status: ctx.approvalOf('dup', d.code),
         code: d.code,
         source: a.source,
         parentPath: a.parentPath,
@@ -47,11 +41,11 @@ const FILES = {
     headers: ['status', 'code', 'source', 'parentPath', 'name', 'responsiblePerson'],
   },
   missing: {
-    rows: (r) => r.missing.map((m) => ({ ...m, status: _approval('missing', m.code) })),
+    rows: (r, ctx) => r.missing.map((m) => ({ ...m, status: ctx.approvalOf('missing', m.code) })),
     headers: ['status', 'code', 'name', 'responsiblePerson'],
   },
   invalid: {
-    rows: (r) => r.invalid.map((v) => ({ ...v, status: _approval('invalid', v.code + '|' + v.source) })),
+    rows: (r, ctx) => r.invalid.map((v) => ({ ...v, status: ctx.approvalOf('invalid', v.code + '|' + v.source) })),
     headers: ['status', 'code', 'source', 'issue', 'hierName', 'masterName', 'parentPath'],
   },
 };
@@ -60,16 +54,17 @@ function fileNames() {
   return Object.keys(FILES);
 }
 
-function buildCsv(name, report) {
+function buildCsv(name, report, ctx) {
   const spec = FILES[name];
   if (!spec) return '';
-  return toCsv(spec.rows(report), spec.headers);
+  return toCsv(spec.rows(report, ctx || _defaultCtx), spec.headers);
 }
 
-function buildAllCsvs(report) {
+function buildAllCsvs(report, ctx) {
   const out = {};
+  const c = ctx || _defaultCtx;
   for (const name of Object.keys(FILES)) {
-    out[`${name}.csv`] = buildCsv(name, report);
+    out[`${name}.csv`] = buildCsv(name, report, c);
   }
   return out;
 }

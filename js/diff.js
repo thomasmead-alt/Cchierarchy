@@ -7,7 +7,6 @@
 //   their slash-delimited path-from-root as the key.
 
 
-var norm = (s) => (s == null ? '' : String(s).trim());
 
 function leafIndex(tree) {
   const out = new Map(); // code -> { node, parentPath }
