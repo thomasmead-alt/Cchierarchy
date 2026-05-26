@@ -230,11 +230,14 @@
               <p class="muted">A vs B. Click a tile to filter the change list on the right.</p>
             </div>
             <div class="view-meta">
+              <button class="btn btn-small btn-primary" id="toggleRpColor" type="button" aria-pressed="true" title="Colour cost centres by responsible person" hidden>Owner colours: on</button>
               <span id="meta-A" class="muted"></span>
               <span class="dot">·</span>
               <span id="meta-B" class="muted"></span>
             </div>
           </div>
+
+          <div class="rp-legend" id="rpLegend" hidden></div>
 
           <section class="tiles" id="tiles">
             <button class="tile" data-filter="newCC">

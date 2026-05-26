@@ -26,12 +26,19 @@ function el(tag, attrs = {}, children = []) {
 //                     are skipped at render time. The underlying tree is
 //                     still the live one, so edits via DnD / inline rename
 //                     commit to it — the filter is purely visual.
+//   ccColors        — optional Map<code, {bg, edge, name}>. Tints leaf nodes
+//                     by responsible person so ownership reads as colour bands.
+//   approvals       — optional Map<code, 'approved'|'rejected'>. Marks the
+//                     matching leaf with a tick / strike so accept/reject
+//                     decisions are visible on the tree itself.
 function renderTree(container, tree, opts = {}) {
   const {
     editable = false,
     highlights = new Map(),
     onChange = () => {},
     scopeIds = null,
+    ccColors = null,
+    approvals = null,
   } = opts;
   container.innerHTML = '';
   if (!tree || tree.nodes.size === 0) {
@@ -39,7 +46,7 @@ function renderTree(container, tree, opts = {}) {
     return;
   }
 
-  const ctx = { editable, highlights, onChange, scopeIds };
+  const ctx = { editable, highlights, onChange, scopeIds, ccColors, approvals };
   const rootUl = el('ul', { class: 'tree-root', dataset: { parentId: '__root__' } });
   for (const node of rootNodes(tree)) {
     if (scopeIds && !scopeIds.has(node.id)) continue;
@@ -82,9 +89,34 @@ function renderNode(tree, node, ctx) {
     dataset: { id: node.id, kind: node.kind },
   }, [toggle, kindEl, codeEl, ' ', nameEl]);
 
+  // Responsible-person colour band (leaf nodes only). Background is set via a
+  // CSS variable so an active diff highlight can still override it, while the
+  // left-edge band stays visible either way.
+  if (node.kind === 'leaf' && ctx.ccColors) {
+    const c = ctx.ccColors.get(node.code);
+    if (c) {
+      nodeRow.classList.add('rp-tinted');
+      nodeRow.style.setProperty('--rp-bg', c.bg);
+      nodeRow.style.setProperty('--rp-edge', c.edge);
+      if (c.name) nodeRow.title = `Responsible: ${c.name}`;
+    }
+  }
+
   // diff highlight
   const hl = ctx.highlights.get(node.id);
   if (hl) nodeRow.classList.add(`diff-${hl}`);
+
+  // Accept / reject decision marker (leaf nodes, matched by code).
+  if (node.kind === 'leaf' && ctx.approvals && node.code) {
+    const status = ctx.approvals.get(node.code);
+    if (status) {
+      nodeRow.classList.add(`appr-${status}`);
+      nodeRow.appendChild(el('span', {
+        class: 'appr-badge',
+        title: status === 'approved' ? 'Approved' : 'Rejected',
+      }, status === 'approved' ? '✓' : '✗'));
+    }
+  }
 
   if (ctx.editable) {
     const actions = el('span', { class: 'node-actions' }, [

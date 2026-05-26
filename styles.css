@@ -575,6 +575,15 @@ code.block {
 .node .name { color: var(--text); }
 .node[contenteditable] { outline: 1px dashed var(--db-coral); border-radius: var(--r-sm); }
 
+/* Responsible-person colour band (leaf cost centres). Background uses a CSS
+   variable so the diff-highlight rules below can override it; the left edge
+   band persists so ownership stays visible even on changed nodes. */
+.node.rp-tinted {
+  background: var(--rp-bg);
+  border-left: 3px solid var(--rp-edge);
+  padding-left: 5px;
+}
+
 /* diff highlights */
 .node.diff-new { background: #E8F7F0; box-shadow: 0 0 0 1px #BCE5D5 inset; }
 .node.diff-amended { background: #FFF4E0; box-shadow: 0 0 0 1px #F0D8A8 inset; }
@@ -582,6 +591,20 @@ code.block {
 .node.diff-duplicate { box-shadow: 0 0 0 1.5px var(--db-coral) inset; background: var(--db-coral-50); }
 .node.diff-invalid { box-shadow: 0 0 0 1.5px var(--db-amber) inset; background: #FFF1E0; }
 .node.diff-recommended { background: #EFEBFB; box-shadow: 0 0 0 1px #D2C9F0 inset; }
+
+/* Accept / reject decision markers on tree nodes. Rejected dims the whole
+   node and strikes the name; approved shows a green tick badge. These layer
+   on top of any diff highlight — the .appr-badge is an inline element so it
+   never disrupts the highlight background. */
+.node.appr-rejected { opacity: 0.45; }
+.node.appr-rejected .name { text-decoration: line-through; }
+.appr-badge {
+  font-size: 10px;
+  font-weight: 700;
+  margin-left: 5px;
+}
+.node.appr-approved .appr-badge { color: var(--db-green); }
+.node.appr-rejected .appr-badge { color: var(--db-red, #D62F4B); }
 
 li.collapsed > ul { display: none; }
 
@@ -717,6 +740,12 @@ li.collapsed > ul { display: none; }
 .list-item .meta { color: var(--muted); font-size: 11.5px; }
 .list-item .actions { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
 .list-item code { color: var(--db-blue); font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 11.5px; }
+/* Approval row states: approved tints green, rejected dims and strikes names */
+.list-item.is-approved { background: #E5F4ED; border-color: #BCE5D5; }
+.list-item.is-rejected { background: #FCE9EC; border-color: #F0BFC7; opacity: 0.6; }
+.list-item.is-rejected code,
+.list-item.is-rejected .name,
+.list-item.is-rejected strong { text-decoration: line-through; }
 
 .section-heading {
   font-size: 11px;
@@ -858,6 +887,57 @@ li.collapsed > ul { display: none; }
   font-size: 12px;
 }
 .project-scope-tree > ul { padding-left: 4px; }
+
+/* Scope editor inside non-orphan project cards */
+.scope-editor { display: flex; flex-direction: column; gap: 8px; padding-top: 6px; }
+.scope-add { display: flex; gap: 6px; }
+.scope-add-input {
+  flex: 1; min-width: 0;
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font: inherit; font-size: 12px;
+  background: var(--bg);
+  color: var(--text);
+}
+.scope-add-input:focus { outline: none; border-color: var(--db-coral); }
+.scope-chips { display: flex; flex-wrap: wrap; gap: 5px; max-height: 160px; overflow-y: auto; }
+.scope-chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: 999px; padding: 2px 4px 2px 8px;
+  font-size: 11.5px; white-space: nowrap;
+}
+.scope-chip code { color: var(--db-blue); font-size: 11px; }
+.scope-chip-added { border-color: #BCE5D5; background: #E5F4ED; }
+.scope-chip-excluded {
+  text-decoration: line-through; color: var(--muted);
+  background: #FCE9EC; border-color: #F0BFC7;
+}
+.chip-x {
+  border: none; background: transparent; cursor: pointer;
+  color: var(--muted); font-size: 12px; line-height: 1;
+  padding: 2px 5px; border-radius: 50%;
+}
+.chip-x:hover { color: var(--db-coral); background: rgba(0,0,0,.06); }
+.scope-excluded-label { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; font-weight: 600; }
+.scope-structure { border: none; }
+.scope-structure > summary {
+  cursor: pointer; font-size: 11px; color: var(--muted);
+  padding: 2px 0; user-select: none; list-style-type: disclosure-closed;
+}
+
+/* Responsible-person legend strip in the Compare header */
+.rp-legend {
+  display: flex; flex-wrap: wrap; gap: 5px 16px;
+  padding: 6px 2px 2px; font-size: 11.5px;
+}
+.rp-key { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); }
+.rp-swatch {
+  width: 13px; height: 13px;
+  border-radius: 3px; border: 1px solid rgba(0,0,0,.12);
+  flex-shrink: 0;
+}
 
 @media (max-width: 720px) {
   .project-tiles { grid-template-columns: repeat(3, 1fr); }
