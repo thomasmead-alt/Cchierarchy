@@ -44,6 +44,9 @@ const state = {
   // Spotlight a single responsible person's cost centres in the Compare /
   // Hierarchy trees. '' = none selected; name string = spotlight that person.
   rpHighlight: '',
+  // Projects created directly in the app (not from PC hierarchy or CSV).
+  //   Map<id, { name: string, codes: Set<code> }>
+  customProjects: new Map(),
 };
 
 const VIEW_TITLES = {
@@ -160,6 +163,7 @@ function clearAll() {
   state.recommendations = [];
   state.projects = [];
   state.projectOverrides = new Map();
+  state.customProjects = new Map();
   for (const slot of ['A', 'B', 'master', 'pc', 'projects']) {
     const dz = $(`label.dropzone[data-slot="${slot}"]`);
     if (!dz) continue;
@@ -288,7 +292,7 @@ function recompute() {
   const fullReport = compare(a || newTree(), state.working || b || newTree(), state.master.records);
   state.report = fullReport;
   state.recommendations = state.working ? suggest(state.master.records, state.working) : [];
-  state.projects = deriveProjects(state.trees.pc, state.master.records, fullReport, state.projectAssignments, state.projectOverrides);
+  state.projects = deriveProjects(state.trees.pc, state.master.records, fullReport, state.projectAssignments, state.projectOverrides, state.customProjects);
   state.projectOverlaps = computeProjectOverlaps(state.projects);
 
   // If a project is focused, drop any stale focus that no longer exists.
@@ -778,7 +782,7 @@ function renderFocusBanner(scope, scopedReport) {
   $('#focusStats').textContent = ` · ${scope.ccCount} cost centres · ${totalChanges} changes in scope`;
 }
 
-function deriveProjects(pcTree, masterRecords, report, projectAssignments, overrides) {
+function deriveProjects(pcTree, masterRecords, report, projectAssignments, overrides, customProjects) {
   // Build code->profitCentre lookup from master.
   const ccToPc = new Map();
   for (const r of masterRecords) if (r.code && r.profitCentre) ccToPc.set(r.code, r.profitCentre);
@@ -799,16 +803,15 @@ function deriveProjects(pcTree, masterRecords, report, projectAssignments, overr
     return out;
   };
 
-  // ---- User-uploaded project assignments take precedence ----
+  const projects = [];
+
+  // ---- User-uploaded project assignments take precedence over PC hierarchy ----
   // When a projects.csv has been provided, every row defines a project. CCs
   // not listed go to the Unassigned bucket. PC hierarchy is only used as the
   // source for the starter download — it does not influence scoping here.
   if (projectAssignments && projectAssignments.projects && projectAssignments.projects.size) {
-    const projects = [];
-    const placedCodes = new Set();
     for (const [name, info] of projectAssignments.projects) {
       const ccCodes = applyOverride('manual:' + name, info.codes);
-      for (const c of ccCodes) placedCodes.add(c);
       projects.push({
         id: 'manual:' + name,
         name,
@@ -821,71 +824,69 @@ function deriveProjects(pcTree, masterRecords, report, projectAssignments, overr
         filtered: filterReportByCcCodes(report, ccCodes),
       });
     }
-    const orphan = new Set();
-    for (const r of masterRecords) {
-      if (!r.code) continue;
-      if (!placedCodes.has(r.code)) orphan.add(r.code);
-    }
-    if (orphan.size) {
+  } else if (pcTree && pcTree.rootIds.length) {
+    // ---- PC hierarchy: one project per top-level node ----
+    const collectPcCodes = (rootId) => {
+      const codes = new Set();
+      const recurse = (id) => {
+        const node = pcTree.nodes.get(id);
+        if (!node) return;
+        if (node.code) codes.add(node.code);
+        // Also accept the node's NAME as a fallback PC identifier when the PC
+        // file uses level-columns (no per-node code).
+        if (!node.code && node.name) codes.add(node.name);
+        for (const n of pcTree.nodes.values()) if (n.parentId === id) recurse(n.id);
+      };
+      recurse(rootId);
+      return codes;
+    };
+
+    for (const rootId of pcTree.rootIds) {
+      const rootNode = pcTree.nodes.get(rootId);
+      if (!rootNode) continue;
+      const pcCodes = collectPcCodes(rootId);
+      const base = new Set();
+      for (const [cc, pc] of ccToPc) if (pcCodes.has(pc)) base.add(cc);
+      const ccCodes = applyOverride(rootId, base);
       projects.push({
-        id: '__unassigned__',
-        name: 'Unassigned',
-        code: '',
-        pcCount: 0,
-        ccCount: orphan.size,
-        ccCodes: orphan,
-        source: 'orphan',
-        filtered: filterReportByCcCodes(report, orphan),
+        id: rootId,
+        name: rootNode.name || rootNode.code || 'Project',
+        code: rootNode.code || '',
+        pcCount: pcCodes.size,
+        ccCount: ccCodes.size,
+        ccCodes,
+        filtered: filterReportByCcCodes(report, ccCodes),
       });
     }
-    return projects;
   }
 
-  if (!pcTree || !pcTree.rootIds.length) return [];
-
-  const collectPcCodes = (rootId) => {
-    const codes = new Set();
-    const recurse = (id) => {
-      const node = pcTree.nodes.get(id);
-      if (!node) return;
-      if (node.code) codes.add(node.code);
-      // Also accept the node's NAME as a fallback PC identifier when the PC
-      // file uses level-columns (no per-node code).
-      if (!node.code && node.name) codes.add(node.name);
-      for (const n of pcTree.nodes.values()) if (n.parentId === id) recurse(n.id);
-    };
-    recurse(rootId);
-    return codes;
-  };
-
-  const projects = [];
-  for (const rootId of pcTree.rootIds) {
-    const rootNode = pcTree.nodes.get(rootId);
-    if (!rootNode) continue;
-    const pcCodes = collectPcCodes(rootId);
-    const base = new Set();
-    for (const [cc, pc] of ccToPc) if (pcCodes.has(pc)) base.add(cc);
-    const ccCodes = applyOverride(rootId, base);
+  // ---- Custom in-app projects always append regardless of other source ----
+  for (const [id, cp] of (customProjects || [])) {
+    if (projects.some((p) => p.id === id)) continue; // id collision guard
+    const ccCodes = applyOverride(id, cp.codes);
     projects.push({
-      id: rootId,
-      name: rootNode.name || rootNode.code || 'Project',
-      code: rootNode.code || '',
-      pcCount: pcCodes.size,
+      id,
+      name: cp.name,
+      code: '',
+      pcCount: 0,
       ccCount: ccCodes.size,
       ccCodes,
+      source: 'custom',
       filtered: filterReportByCcCodes(report, ccCodes),
     });
   }
 
-  // Catch-all bucket for cost centres that have no profit-centre assignment, OR
-  // whose profit centre isn't found anywhere in the PC hierarchy. Always shown
-  // when at least one such CC exists so they don't silently disappear.
-  const allProjectCcCodes = new Set();
-  for (const p of projects) for (const c of p.ccCodes) allProjectCcCodes.add(c);
+  if (!projects.length) return [];
+
+  // ---- Catch-all bucket: CCs not covered by any project ----
+  // Shown whenever at least one master CC is unassigned so they don't silently
+  // disappear. Applies to all source modes (manual CSV, PC hierarchy, custom).
+  const allCovered = new Set();
+  for (const p of projects) for (const c of p.ccCodes) allCovered.add(c);
   const orphan = new Set();
   for (const r of masterRecords) {
     if (!r.code) continue;
-    if (!allProjectCcCodes.has(r.code)) orphan.add(r.code);
+    if (!allCovered.has(r.code)) orphan.add(r.code);
   }
   if (orphan.size) {
     projects.push({
@@ -895,6 +896,7 @@ function deriveProjects(pcTree, masterRecords, report, projectAssignments, overr
       pcCount: 0,
       ccCount: orphan.size,
       ccCodes: orphan,
+      source: 'orphan',
       filtered: filterReportByCcCodes(report, orphan),
     });
   }
@@ -909,12 +911,20 @@ function renderProjects() {
     c.innerHTML = empty('Load the master list so cost centres can be mapped to projects.');
     return;
   }
-  if (!state.trees.pc && !state.projectAssignments) {
-    c.innerHTML = empty('Drop a profit-centre hierarchy CSV in Imports (and optionally a project-assignments CSV) to see projects.');
+  // Custom projects work even without PC/CSV — only show the PC/CSV hint when
+  // there are no custom projects either.
+  if (!state.trees.pc && !state.projectAssignments && !state.customProjects.size) {
+    c.innerHTML = `<div class="projects-no-source">
+      <p class="empty-state">Drop a profit-centre hierarchy CSV in Imports to auto-generate projects from the PC structure — or create projects manually below.</p>
+      <button class="btn btn-primary" data-action="create-project" style="margin-top:8px">+ New project</button>
+    </div>`;
     return;
   }
   if (!state.projects.length) {
-    c.innerHTML = empty('No projects derived. The PC hierarchy has no top-level nodes, or master rows have no ProfitCentre values.');
+    c.innerHTML = `<div class="projects-no-source">
+      <p class="empty-state">No projects yet. Create one to group your cost centres.</p>
+      <button class="btn btn-primary" data-action="create-project" style="margin-top:8px">+ New project</button>
+    </div>`;
     return;
   }
 
@@ -945,6 +955,7 @@ function renderProjects() {
         <span class="muted"> · ${totalCC} cost centres covered · ${escape(sourceLabel)}</span>
       </div>
       <div class="projects-actions">
+        <button class="btn btn-small btn-primary" data-action="create-project">+ New project</button>
         <button class="btn btn-small" data-action="download-starter-projects">Download starter projects.csv</button>
       </div>
     </div>`;
@@ -1017,13 +1028,18 @@ function renderProjects() {
       </details>`;
     }
 
-    out += `<div class="project-card${isOrphan ? ' project-orphan' : ''}" data-project-id="${escapeAttr(p.id)}">
+    const isCustom = p.source === 'custom';
+    out += `<div class="project-card${isOrphan ? ' project-orphan' : ''}${isCustom ? ' project-custom' : ''}" data-project-id="${escapeAttr(p.id)}">
       <header class="project-head">
         <div>
           <strong class="project-name">${escape(p.name)}</strong>
           ${p.code ? `<code class="meta">${escape(p.code)}</code>` : ''}
+          ${isCustom ? '<span class="badge badge-custom">custom</span>' : ''}
         </div>
-        <div class="project-meta meta">${p.ccCount} cost centres${p.pcCount ? ` · ${p.pcCount} profit centres` : ''}</div>
+        <div style="display:flex;align-items:center;gap:6px">
+          ${isCustom ? `<button class="btn btn-small" data-action="edit-project" data-id="${escapeAttr(p.id)}" title="Edit project">Edit</button><button class="btn btn-small btn-danger" data-action="delete-project" data-id="${escapeAttr(p.id)}" title="Delete project">Delete</button>` : ''}
+          <div class="project-meta meta">${p.ccCount} cost centres${p.pcCount ? ` · ${p.pcCount} profit centres` : ''}</div>
+        </div>
       </header>
       <div class="project-tiles">
         <div class="ptile"><span class="ptile-count tone-green">${f.newCC.length}</span><span class="ptile-label">New CC</span></div>
@@ -1148,6 +1164,160 @@ function exportProject(projectId) {
 // rendering primitive specific to this view layer.
 function empty(msg) { return `<div class="empty-state">${escape(msg)}</div>`; }
 
+// ---------- Custom project modal ----------
+
+// Opens a modal to create (editId=null) or edit (editId=string) a custom project.
+// The modal shows a name field plus a filterable checklist of all master cost centres.
+// Selections are tracked in a JS Set independent of which rows are visible so that
+// filtering never loses previously checked items.
+function openProjectModal(editId) {
+  const existing = editId ? state.customProjects.get(editId) : null;
+  const masterRecords = state.master.records;
+  const masterByCode = new Map(masterRecords.map((r) => [r.code, r]));
+
+  // All selectable codes (master CCs that have a code).
+  const allCodes = masterRecords.filter((r) => r.code).map((r) => r.code);
+
+  // Track selection independent of visible rows.
+  const selected = new Set(existing ? existing.codes : []);
+
+  const MAX_VISIBLE = 100;
+
+  // Build the backdrop + modal DOM.
+  const backdrop = document.createElement('div');
+  backdrop.className = 'modal-backdrop';
+
+  const modal = document.createElement('div');
+  modal.className = 'modal modal-project';
+  modal.innerHTML = `
+    <div class="modal-header">
+      <h3>${editId ? 'Edit project' : 'New project'}</h3>
+      <button class="modal-close" title="Close">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="proj-name-row">
+        <label class="proj-name-label">Project name</label>
+        <input class="proj-name-input" type="text" placeholder="Enter project name…" value="${escapeAttr(existing ? existing.name : '')}" />
+      </div>
+      <div class="proj-cc-head">
+        <span class="proj-list-label">Cost centres</span>
+        <span class="proj-sel-count">0 selected</span>
+      </div>
+      <div class="proj-filter-row">
+        <input class="proj-filter-input" type="text" placeholder="Filter by code or name…" />
+        <button class="btn btn-small proj-select-all-btn">Select all matching</button>
+        <button class="btn btn-small proj-clear-btn">Clear selection</button>
+      </div>
+      <div class="proj-cc-list"></div>
+      <div class="proj-foot-info muted"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" data-modal-action="cancel">Cancel</button>
+      <button class="btn btn-primary" data-modal-action="save">${editId ? 'Save changes' : 'Create project'}</button>
+    </div>`;
+
+  backdrop.appendChild(modal);
+  document.body.appendChild(backdrop);
+
+  const nameInput = modal.querySelector('.proj-name-input');
+  const filterInput = modal.querySelector('.proj-filter-input');
+  const listEl = modal.querySelector('.proj-cc-list');
+  const selCountEl = modal.querySelector('.proj-sel-count');
+  const footInfo = modal.querySelector('.proj-foot-info');
+  const selectAllBtn = modal.querySelector('.proj-select-all-btn');
+  const clearBtn = modal.querySelector('.proj-clear-btn');
+
+  let currentFilter = '';
+  let filteredCodes = [];
+
+  function updateSelCount() {
+    selCountEl.textContent = `${selected.size} selected`;
+  }
+
+  function renderList() {
+    const q = currentFilter.toLowerCase().trim();
+    filteredCodes = q
+      ? allCodes.filter((code) => {
+          const r = masterByCode.get(code);
+          return code.toLowerCase().includes(q) || (r && r.name && r.name.toLowerCase().includes(q));
+        })
+      : allCodes;
+
+    const visible = filteredCodes.slice(0, MAX_VISIBLE);
+    const overflow = filteredCodes.length - visible.length;
+
+    listEl.innerHTML = visible.map((code) => {
+      const r = masterByCode.get(code) || {};
+      const checked = selected.has(code) ? 'checked' : '';
+      const rp = r.responsiblePerson ? `<span class="proj-cc-rp muted">${escape(r.responsiblePerson)}</span>` : '';
+      return `<label class="proj-cc-row${selected.has(code) ? ' is-checked' : ''}">
+        <input type="checkbox" class="proj-cc-check" data-code="${escapeAttr(code)}" ${checked} />
+        <code class="proj-cc-code">${escape(code)}</code>
+        <span class="proj-cc-name">${escape(r.name || '')}</span>
+        ${rp}
+      </label>`;
+    }).join('');
+
+    if (overflow > 0) {
+      footInfo.textContent = `Showing ${visible.length} of ${filteredCodes.length} — refine your search to see more.`;
+    } else {
+      footInfo.textContent = filteredCodes.length === allCodes.length
+        ? `${allCodes.length} cost centres total.`
+        : `${filteredCodes.length} matching.`;
+    }
+    updateSelCount();
+  }
+
+  // Wire checkbox delegation on the list.
+  listEl.addEventListener('change', (e) => {
+    const cb = e.target.closest('.proj-cc-check');
+    if (!cb) return;
+    const code = cb.dataset.code;
+    if (cb.checked) selected.add(code);
+    else selected.delete(code);
+    cb.closest('.proj-cc-row').classList.toggle('is-checked', cb.checked);
+    updateSelCount();
+  });
+
+  filterInput.addEventListener('input', (e) => {
+    currentFilter = e.target.value;
+    renderList();
+  });
+
+  selectAllBtn.addEventListener('click', () => {
+    for (const code of filteredCodes) selected.add(code);
+    renderList();
+  });
+
+  clearBtn.addEventListener('click', () => {
+    selected.clear();
+    renderList();
+  });
+
+  const closeModal = () => backdrop.remove();
+
+  modal.querySelector('.modal-close').addEventListener('click', closeModal);
+  backdrop.addEventListener('click', (e) => { if (e.target === backdrop) closeModal(); });
+
+  modal.querySelector('[data-modal-action="cancel"]').addEventListener('click', closeModal);
+  modal.querySelector('[data-modal-action="save"]').addEventListener('click', () => {
+    const name = nameInput.value.trim();
+    if (!name) { nameInput.focus(); nameInput.style.outline = '2px solid var(--db-coral)'; return; }
+    if (!selected.size) { setStatus('Select at least one cost centre.', 'error'); return; }
+    const id = editId || ('custom:' + Date.now());
+    state.customProjects.set(id, { name, codes: new Set(selected) });
+    closeModal();
+    recompute();
+    setView('projects');
+    setStatus(`Project "${name}" ${editId ? 'updated' : 'created'} with ${selected.size} cost centres.`, 'ok');
+  });
+
+  // Initial render.
+  renderList();
+  nameInput.focus();
+  nameInput.select();
+}
+
 // ---------- Sidebar action handlers (event delegation) ----------
 
 function handleSidebarClick(ev) {
@@ -1222,6 +1392,18 @@ function handleSidebarClick(ev) {
     const code = btn.dataset.code;
     if (!projectId) { setStatus('Select a project first.', 'error'); return; }
     addCcToProject(projectId, code);
+  } else if (action === 'create-project') {
+    openProjectModal(null);
+  } else if (action === 'edit-project') {
+    openProjectModal(btn.dataset.id);
+  } else if (action === 'delete-project') {
+    const pid = btn.dataset.id;
+    const cp = state.customProjects.get(pid);
+    if (!cp) return;
+    if (!confirm(`Delete project "${cp.name}"? This cannot be undone.`)) return;
+    state.customProjects.delete(pid);
+    recompute();
+    setStatus(`Project "${cp.name}" deleted.`, 'ok');
   }
 }
 
@@ -1800,6 +1982,9 @@ function serializeSession() {
     projectOverrides: [...state.projectOverrides.entries()].map(
       ([id, ov]) => [id, { added: [...ov.added], excluded: [...ov.excluded] }],
     ),
+    customProjects: [...state.customProjects.entries()].map(
+      ([id, cp]) => [id, { name: cp.name, codes: [...cp.codes] }],
+    ),
   };
 }
 
@@ -1850,6 +2035,11 @@ function restoreSessionData(data) {
   state.projectOverrides = new Map(
     (data.projectOverrides || []).map(
       ([id, ov]) => [id, { added: new Set(ov.added || []), excluded: new Set(ov.excluded || []) }],
+    ),
+  );
+  state.customProjects = new Map(
+    (data.customProjects || []).map(
+      ([id, cp]) => [id, { name: cp.name, codes: new Set(cp.codes || []) }],
     ),
   );
   setView(data.activeView || 'imports');
