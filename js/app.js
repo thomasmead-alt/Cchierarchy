@@ -41,9 +41,9 @@ const state = {
   //   Map<projectId, { added: Set<code>, excluded: Set<code> }>
   // Scope = (auto CCs ∪ added) minus excluded — excluded always wins.
   projectOverrides: new Map(),
-  // Colour cost-centre nodes by responsible person in the Compare/Hierarchy
-  // trees so ownership reads as colour bands. Toggled in the Compare header.
-  colorByRp: true,
+  // Spotlight a single responsible person's cost centres in the Compare /
+  // Hierarchy trees. '' = none selected; name string = spotlight that person.
+  rpHighlight: '',
 };
 
 const VIEW_TITLES = {
@@ -323,12 +323,11 @@ function recompute() {
   const hlB = buildHighlights(b, report, 'B');
   const hlW = buildHighlights(workingDisplay, report, 'working');
 
-  // Owner colours + approval markers shared by every tree render below.
-  const ccColors = state.colorByRp ? buildCcColors(state.master.records) : null;
-  const approvalByCode = buildApprovalByCode();
-  renderRpLegend(ccColors);
+  // Spotlight one responsible person's CCs (null = no one selected = no tint).
+  const ccColors = buildCcHighlight(state.master.records, state.rpHighlight);
+  renderRpSpotlight();
 
-  if (aDisplay) renderTree($('#tree-A'), aDisplay, { editable: false, highlights: hlA, ccColors, approvals: approvalByCode });
+  if (aDisplay) renderTree($('#tree-A'), aDisplay, { editable: false, highlights: hlA, ccColors });
   else $('#tree-A').innerHTML = '<div class="empty-state">Drop hierarchy A above.</div>';
   // Compare's middle pane shows the live "working" tree (B + your edits) so
   // hierarchy edits are reflected here in real time. Falls back to the raw B
@@ -338,7 +337,6 @@ function recompute() {
       editable: false,
       highlights: state.working ? hlW : hlB,
       ccColors,
-      approvals: approvalByCode,
     });
   } else {
     $('#tree-B').innerHTML = '<div class="empty-state">Drop hierarchy B above.</div>';
@@ -357,7 +355,6 @@ function recompute() {
         scopeIds: editorScopeIds,
         highlights: hlW,
         ccColors,
-        approvals: approvalByCode,
         onChange: (movedId) => {
           pushHistory();
           recompute();
@@ -444,84 +441,83 @@ function buildHighlights(tree, report, which) {
   return hl;
 }
 
-// ---------- Responsible-person colours ----------
-// Deterministic hue per person name so the same owner always gets the same
-// colour across reloads. Returns Map<code, {bg, edge, name}> for every master
-// cost centre that has a responsible person.
-function hueFromString(s) {
-  let h = 0;
-  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
-  return h % 360;
-}
-function buildCcColors(masterRecords) {
-  const colorByPerson = new Map();
-  for (const r of masterRecords) {
-    const rp = r.responsiblePerson;
-    if (!rp || colorByPerson.has(rp)) continue;
-    const hue = hueFromString(rp);
-    colorByPerson.set(rp, {
-      bg: `hsl(${hue} 72% 93%)`,
-      edge: `hsl(${hue} 58% 52%)`,
-    });
-  }
-  const byCode = new Map();
-  for (const r of masterRecords) {
-    if (!r.code || !r.responsiblePerson) continue;
-    const c = colorByPerson.get(r.responsiblePerson);
-    if (c) byCode.set(r.code, { bg: c.bg, edge: c.edge, name: r.responsiblePerson });
-  }
-  byCode._byPerson = colorByPerson; // attached for the legend
-  return byCode;
-}
-
-// Flatten the per-change approval map down to a single status per cost-centre
-// code, so tree leaves can show a tick / strike. Last write wins when a code
-// carries decisions under several change types.
-function buildApprovalByCode() {
+// ---------- Responsible-person spotlight ----------
+// Highlights only the selected person's CCs with a fixed amber tint so the
+// feature scales to any number of responsible people. No hue-per-person.
+function buildCcHighlight(masterRecords, personName) {
+  if (!personName) return null;
   const m = new Map();
-  for (const [key, status] of state.approvals) {
-    const sep = key.indexOf('::');
-    if (sep < 0) continue;
-    const type = key.slice(0, sep);
-    const id = key.slice(sep + 2);
-    if (type === 'invalid') m.set(id.split('|')[0], status);
-    else if (type === 'newCC' || type === 'amendedCC' || type === 'missing' || type === 'dup' || type === 'deletedNode') {
-      m.set(id, status);
-    }
+  for (const r of masterRecords) {
+    if (r.responsiblePerson === personName && r.code)
+      m.set(r.code, { bg: 'hsl(38 90% 92%)', edge: 'hsl(38 80% 55%)', name: personName });
   }
-  return m;
+  return m.size ? m : null;
 }
 
-// Legend mapping each owner colour to a person. Hidden when colouring is off
-// or the master list carries no responsible-person data.
-function renderRpLegend(ccColors) {
-  const legend = $('#rpLegend');
-  const toggle = $('#toggleRpColor');
-  const byPerson = ccColors && ccColors._byPerson;
+// Populate the RP spotlight dropdown from master records. Rebuild options only
+// when the owner list has changed; always keep the select value in sync.
+function renderRpSpotlight() {
+  const wrap = $('#rpSpotlightWrap');
+  const sel = $('#rpHighlight');
+  if (!wrap || !sel) return;
   const hasData = state.master.records.some((r) => r.responsiblePerson);
-  if (toggle) {
-    toggle.textContent = `Owner colours: ${state.colorByRp ? 'on' : 'off'}`;
-    toggle.setAttribute('aria-pressed', String(state.colorByRp));
-    toggle.classList.toggle('btn-primary', state.colorByRp);
-    toggle.hidden = !hasData;
+  wrap.hidden = !hasData;
+  if (!hasData) return;
+  const names = [...new Set(state.master.records.map((r) => r.responsiblePerson).filter(Boolean))].sort();
+  const key = names.join('\x00');
+  if (sel.dataset.built !== key) {
+    sel.innerHTML = `<option value="">— none —</option>` +
+      names.map((n) => `<option value="${escapeAttr(n)}">${escape(n)}</option>`).join('');
+    sel.dataset.built = key;
   }
-  if (!legend) return;
-  if (!byPerson || !byPerson.size) { legend.hidden = true; legend.innerHTML = ''; return; }
-  legend.hidden = false;
-  legend.innerHTML = [...byPerson.entries()]
-    .sort((a, b) => a[0].localeCompare(b[0]))
-    .map(([name, c]) =>
-      `<span class="rp-key"><span class="rp-swatch" style="background:${c.bg};border-color:${c.edge}"></span>${escape(name)}</span>`)
-    .join('');
+  sel.value = state.rpHighlight;
 }
 
-function wireRpToggle() {
-  const toggle = $('#toggleRpColor');
-  if (!toggle) return;
-  toggle.addEventListener('click', () => {
-    state.colorByRp = !state.colorByRp;
-    recompute();
-  });
+function wireRpSpotlight() {
+  const sel = $('#rpHighlight');
+  if (!sel) return;
+  sel.addEventListener('change', () => { state.rpHighlight = sel.value; recompute(); });
+}
+
+// Render the list of unassigned CCs with search + assign controls.
+// Called once after renderProjects sets innerHTML, and again on search input.
+function renderUnassignedList(panel, query) {
+  const orphan = state.projects.find((p) => p.id === '__unassigned__');
+  const listEl = panel.querySelector('.unassigned-list');
+  const countEl = panel.querySelector('.assign-count');
+  if (!orphan || !listEl) return;
+  const masterByCode = new Map(state.master.records.map((r) => [r.code, r]));
+  const q = (query || '').toLowerCase();
+  const allCodes = [...orphan.ccCodes].sort();
+  const matches = q
+    ? allCodes.filter((code) => {
+        const r = masterByCode.get(code);
+        return code.toLowerCase().includes(q) || (r && (r.name || '').toLowerCase().includes(q));
+      })
+    : allCodes;
+  const shown = matches.slice(0, 50);
+  if (countEl) {
+    countEl.textContent = matches.length > 50
+      ? `Showing 50 of ${matches.length} — refine your search`
+      : `${matches.length} cost centre${matches.length === 1 ? '' : 's'}`;
+  }
+  if (!shown.length) {
+    listEl.innerHTML = '<div class="empty-state">No unassigned cost centres match your search.</div>';
+    return;
+  }
+  const projectOptions = state.projects
+    .filter((p) => p.id !== '__unassigned__')
+    .map((p) => `<option value="${escapeAttr(p.id)}">${escape(p.name)}</option>`)
+    .join('');
+  listEl.innerHTML = shown.map((code) => {
+    const r = masterByCode.get(code);
+    return `<div class="assign-row">
+      <code>${escape(code)}</code>
+      <span class="assign-name muted">${escape(r ? r.name : '')}</span>
+      <select class="assign-project"><option value="">— assign to —</option>${projectOptions}</select>
+      <button class="btn btn-small" data-action="assign-unassigned" data-code="${escapeAttr(code)}">Assign</button>
+    </div>`;
+  }).join('');
 }
 
 // ---------- Sidebar tabs ----------
@@ -922,25 +918,26 @@ function renderProjects() {
     return;
   }
 
-  const totalCC = state.projects.reduce((s, p) => s + p.ccCount, 0);
-  const projectCount = state.projects.filter((p) => p.id !== '__unassigned__').length;
-  const sourceLabel = state.projectAssignments ? 'from uploaded project assignments' : 'from PC hierarchy';
-
-  // Lookup + shared <datalist> of every master cost centre, so each project's
-  // "add cost centre" picker can suggest codes and names.
   const masterByCode = new Map(state.master.records.map((r) => [r.code, r]));
+  const nameOf = (code) => (masterByCode.get(code) || {}).name || '';
+
+  // Shared datalist for all add/exclude pickers — built once per render.
   const ccDatalist = `<datalist id="cc-options">${state.master.records
     .map((r) => `<option value="${escapeAttr(r.code)}">${escapeAttr(r.code + (r.name ? ' — ' + r.name : ''))}</option>`)
     .join('')}</datalist>`;
-  const nameOf = (code) => (masterByCode.get(code) || {}).name || '';
-  const scopeChip = (id, code, kind) => {
+
+  // Override chips — only ever a small human-scale number.
+  const overrideChip = (pid, code, kind) => {
     if (kind === 'excluded') {
-      return `<span class="scope-chip scope-chip-excluded"><code>${escape(code)}</code> ${escape(nameOf(code))}<button class="chip-x" data-action="scope-restore" data-id="${escapeAttr(id)}" data-code="${escapeAttr(code)}" title="Restore to project">↺</button></span>`;
+      return `<span class="scope-chip scope-chip-excluded" title="Excluded override"><code>${escape(code)}</code> ${escape(nameOf(code))}<button class="chip-x" data-action="scope-restore" data-id="${escapeAttr(pid)}" data-code="${escapeAttr(code)}" title="Restore">↺</button></span>`;
     }
-    const added = kind === 'added' ? ' scope-chip-added' : '';
-    const tip = kind === 'added' ? 'added override · click ✕ to remove' : 'remove from project';
-    return `<span class="scope-chip${added}"><code>${escape(code)}</code> ${escape(nameOf(code))}<button class="chip-x" data-action="scope-remove" data-id="${escapeAttr(id)}" data-code="${escapeAttr(code)}" title="${tip}">✕</button></span>`;
+    return `<span class="scope-chip scope-chip-added" title="Added override"><code>${escape(code)}</code> ${escape(nameOf(code))}<button class="chip-x" data-action="scope-remove" data-id="${escapeAttr(pid)}" data-code="${escapeAttr(code)}" title="Remove override">✕</button></span>`;
   };
+
+  const totalCC = state.projects.reduce((s, p) => s + p.ccCount, 0);
+  const projectCount = state.projects.filter((p) => p.id !== '__unassigned__').length;
+  const sourceLabel = state.projectAssignments ? 'from uploaded project assignments' : 'from PC hierarchy';
+  const orphan = state.projects.find((p) => p.id === '__unassigned__');
 
   let out = `<div class="projects-toolbar">
       <div>
@@ -952,6 +949,11 @@ function renderProjects() {
       </div>
     </div>`;
 
+  // Unassigned warning — shown whenever the orphan bucket has CCs.
+  if (orphan && orphan.ccCount > 0) {
+    out += `<div class="unassigned-warning">⚠ ${orphan.ccCount} cost centre${orphan.ccCount === 1 ? '' : 's'} not assigned to any project. Use the Unassigned card below to assign them.</div>`;
+  }
+
   // Overlap warnings — projects must not share cost centres.
   if (state.projectOverlaps && state.projectOverlaps.size) {
     out += `<div class="overlap-warning"><strong>${state.projectOverlaps.size} cost centre${state.projectOverlaps.size === 1 ? '' : 's'} appear in more than one project.</strong> Each cost centre should belong to exactly one project. Fix by editing the master ProfitCentre column or the uploaded projects.csv.</div>`;
@@ -961,17 +963,60 @@ function renderProjects() {
     }
     out += '</div>';
   }
+
   out += ccDatalist;
   out += '<div class="project-grid">';
+
   for (const p of state.projects) {
     const f = p.filtered;
-    const ov = state.projectOverrides.get(p.id);
-    const excludedCodes = ov ? [...ov.excluded].filter((c) => masterByCode.has(c)).sort() : [];
-    const totalChanges =
-      f.newCC.length + f.amendedCC.length + f.deletedNodes.length;
-    const totalQuality =
-      f.duplicates.length + f.missing.length + f.invalid.length;
     const isOrphan = p.id === '__unassigned__';
+    const ov = state.projectOverrides.get(p.id);
+    // Only valid added codes (confirmed in scope after override logic).
+    const addedCodes = ov ? [...ov.added].filter((c) => p.ccCodes.has(c)).sort() : [];
+    // Excluded codes that exist in master (may not be in scope).
+    const excludedCodes = ov ? [...ov.excluded].filter((c) => masterByCode.has(c)).sort() : [];
+    const totalChanges = f.newCC.length + f.amendedCC.length + f.deletedNodes.length;
+    const totalQuality = f.duplicates.length + f.missing.length + f.invalid.length;
+
+    // Scope section differs per card type.
+    let scopeSection;
+    if (isOrphan) {
+      // Search-and-assign panel — list is populated after innerHTML via renderUnassignedList().
+      scopeSection = `
+      <div class="project-scope unassigned-panel">
+        <div class="unassigned-top">
+          <input class="unassigned-search" placeholder="Search by code or name…" />
+          <span class="assign-count muted"></span>
+        </div>
+        <div class="unassigned-list"></div>
+      </div>`;
+    } else {
+      const addedBadge = addedCodes.length ? `<span class="scope-badge-add">+${addedCodes.length} added</span>` : '';
+      const exclBadge = excludedCodes.length ? `<span class="scope-badge-excl">−${excludedCodes.length} excluded</span>` : '';
+      scopeSection = `
+      <details class="project-scope" open>
+        <summary><strong>${p.ccCount}</strong> cost centres in scope ${addedBadge}${exclBadge}</summary>
+        <div class="scope-editor">
+          <div class="scope-inputs">
+            <div class="scope-add">
+              <input class="scope-exclude-input" list="cc-options" placeholder="Exclude a cost centre…" data-id="${escapeAttr(p.id)}" />
+              <button class="btn btn-small" data-action="scope-exclude" data-id="${escapeAttr(p.id)}">Exclude</button>
+            </div>
+            <div class="scope-add">
+              <input class="scope-add-input" list="cc-options" placeholder="Add a cost centre…" data-id="${escapeAttr(p.id)}" />
+              <button class="btn btn-small" data-action="scope-add" data-id="${escapeAttr(p.id)}">Add</button>
+            </div>
+          </div>
+          ${addedCodes.length ? `<div class="scope-override-label">Added (${addedCodes.length})</div><div class="scope-chips">${addedCodes.map((code) => overrideChip(p.id, code, 'added')).join('')}</div>` : ''}
+          ${excludedCodes.length ? `<div class="scope-override-label scope-excluded-label">Excluded (${excludedCodes.length})</div><div class="scope-chips">${excludedCodes.map((code) => overrideChip(p.id, code, 'excluded')).join('')}</div>` : ''}
+          <details class="scope-structure" data-project-id="${escapeAttr(p.id)}">
+            <summary>Show hierarchy structure</summary>
+            <div class="tree project-scope-tree"></div>
+          </details>
+        </div>
+      </details>`;
+    }
+
     out += `<div class="project-card${isOrphan ? ' project-orphan' : ''}" data-project-id="${escapeAttr(p.id)}">
       <header class="project-head">
         <div>
@@ -988,29 +1033,7 @@ function renderProjects() {
         <div class="ptile"><span class="ptile-count tone-purple">${f.missing.length}</span><span class="ptile-label">Missing</span></div>
         <div class="ptile"><span class="ptile-count tone-amber">${f.invalid.length}</span><span class="ptile-label">Invalid</span></div>
       </div>
-      ${isOrphan ? `
-      <details class="project-scope" open>
-        <summary>Scope · ${p.ccCount} cost centres in working hierarchy</summary>
-        <div class="tree project-scope-tree" data-scope-for="${escapeAttr(p.id)}"></div>
-      </details>` : `
-      <details class="project-scope" open>
-        <summary>Scope · ${p.ccCount} cost centres · ✕ removes, picker adds</summary>
-        <div class="scope-editor">
-          <div class="scope-add">
-            <input class="scope-add-input" list="cc-options" placeholder="Add cost centre by code or name…" data-id="${escapeAttr(p.id)}" />
-            <button class="btn btn-small" data-action="scope-add" data-id="${escapeAttr(p.id)}">Add</button>
-          </div>
-          <div class="scope-chips">
-            ${[...p.ccCodes].sort().map((code) => scopeChip(p.id, code, ov && ov.added.has(code) ? 'added' : 'base')).join('') || '<span class="muted" style="font-size:11.5px">No cost centres in scope.</span>'}
-          </div>
-          ${excludedCodes.length ? `<div class="scope-excluded-label muted">Excluded (${excludedCodes.length})</div>
-          <div class="scope-chips">${excludedCodes.map((code) => scopeChip(p.id, code, 'excluded')).join('')}</div>` : ''}
-          <details class="scope-structure">
-            <summary>Show hierarchy structure</summary>
-            <div class="tree project-scope-tree" data-scope-for="${escapeAttr(p.id)}"></div>
-          </details>
-        </div>
-      </details>`}
+      ${scopeSection}
       <div class="project-foot">
         <span class="meta">${totalChanges} changes · ${totalQuality} quality issues</span>
         <div class="project-foot-actions">
@@ -1024,31 +1047,47 @@ function renderProjects() {
   out += '</div>';
   c.innerHTML = out;
 
-  // Mount per-project sub-trees once the HTML is in the DOM.
-  if (state.working) {
-    const ccColors = state.colorByRp ? buildCcColors(state.master.records) : null;
-    const approvalByCode = buildApprovalByCode();
-    for (const p of state.projects) {
-      const container = c.querySelector(`.project-scope-tree[data-scope-for="${cssEscape(p.id)}"]`);
-      if (!container) continue;
-      const subtree = projectScopedTree(state.working, p.ccCodes);
-      const highlights = buildHighlights(subtree, state.report, 'working');
-      if (subtree.nodes.size === 0) {
-        container.innerHTML = '<div class="empty-state">No matching cost centres in the working hierarchy.</div>';
-      } else {
-        renderTree(container, subtree, { editable: false, highlights, ccColors, approvals: approvalByCode });
-      }
+  // --- Post-render wiring ---
+
+  // Unassigned search panel: initial render + live filter.
+  const unassignedPanel = c.querySelector('.unassigned-panel');
+  if (unassignedPanel) {
+    renderUnassignedList(unassignedPanel, '');
+    const searchInp = unassignedPanel.querySelector('.unassigned-search');
+    if (searchInp) {
+      searchInp.addEventListener('input', (e) => renderUnassignedList(unassignedPanel, e.target.value));
     }
   }
 
-  // Enter in an "add cost centre" picker commits the add.
-  for (const inp of c.querySelectorAll('.scope-add-input')) {
+  // Lazy scope structure trees: render only when the <details> is opened.
+  for (const det of c.querySelectorAll('.scope-structure[data-project-id]')) {
+    det.addEventListener('toggle', function onToggle() {
+      if (!this.open) return;
+      const pid = this.dataset.projectId;
+      const treeContainer = this.querySelector('.project-scope-tree');
+      if (!treeContainer || treeContainer.dataset.rendered || !state.working) return;
+      const p = state.projects.find((x) => x.id === pid);
+      if (!p) return;
+      const subtree = projectScopedTree(state.working, p.ccCodes);
+      const highlights = buildHighlights(subtree, state.report, 'working');
+      if (subtree.nodes.size === 0) {
+        treeContainer.innerHTML = '<div class="empty-state">No matching cost centres in the working hierarchy.</div>';
+      } else {
+        renderTree(treeContainer, subtree, { editable: false, highlights });
+      }
+      treeContainer.dataset.rendered = '1';
+    });
+  }
+
+  // Enter key shortcuts for add / exclude inputs.
+  for (const inp of c.querySelectorAll('.scope-add-input, .scope-exclude-input')) {
     inp.addEventListener('keydown', (e) => {
       if (e.key !== 'Enter') return;
       e.preventDefault();
       const code = resolveCcInput(inp.value);
-      if (code) addCcToProject(inp.dataset.id, code);
-      else setStatus(`No cost centre matches "${escape(inp.value)}".`, 'error');
+      if (!code) { setStatus(`No cost centre matches "${escape(inp.value)}".`, 'error'); return; }
+      if (inp.classList.contains('scope-exclude-input')) removeCcFromProject(inp.dataset.id, code);
+      else addCcToProject(inp.dataset.id, code);
     });
   }
 }
@@ -1168,10 +1207,21 @@ function handleSidebarClick(ev) {
     const code = resolveCcInput(input ? input.value : '');
     if (code) addCcToProject(btn.dataset.id, code);
     else setStatus(`No cost centre matches "${escape(input ? input.value : '')}".`, 'error');
+  } else if (action === 'scope-exclude') {
+    const input = document.querySelector(`.scope-exclude-input[data-id="${cssEscape(btn.dataset.id)}"]`);
+    const code = resolveCcInput(input ? input.value : '');
+    if (code) removeCcFromProject(btn.dataset.id, code);
+    else setStatus(`No cost centre matches "${escape(input ? input.value : '')}".`, 'error');
   } else if (action === 'scope-remove') {
     removeCcFromProject(btn.dataset.id, btn.dataset.code);
   } else if (action === 'scope-restore') {
     restoreCcToProject(btn.dataset.id, btn.dataset.code);
+  } else if (action === 'assign-unassigned') {
+    const row = btn.closest('.assign-row');
+    const projectId = row ? row.querySelector('.assign-project').value : '';
+    const code = btn.dataset.code;
+    if (!projectId) { setStatus('Select a project first.', 'error'); return; }
+    addCcToProject(projectId, code);
   }
 }
 
@@ -1746,7 +1796,7 @@ function serializeSession() {
         }
       : null,
     approvals: [...state.approvals.entries()],
-    colorByRp: state.colorByRp,
+    rpHighlight: state.rpHighlight,
     projectOverrides: [...state.projectOverrides.entries()].map(
       ([id, ov]) => [id, { added: [...ov.added], excluded: [...ov.excluded] }],
     ),
@@ -1795,7 +1845,8 @@ function restoreSessionData(data) {
   state.hierarchyMode = data.hierarchyMode || 'tree';
   state.activeProject = data.activeProject || null;
   state.approvals = new Map(data.approvals || []);
-  state.colorByRp = data.colorByRp !== false;
+  // rpHighlight is a string; handle old sessions that had colorByRp (bool).
+  state.rpHighlight = typeof data.rpHighlight === 'string' ? data.rpHighlight : '';
   state.projectOverrides = new Map(
     (data.projectOverrides || []).map(
       ([id, ov]) => [id, { added: new Set(ov.added || []), excluded: new Set(ov.excluded || []) }],
@@ -2008,7 +2059,7 @@ function init() {
   wireFocusBanner();
   wireGlobalSearch();
   wireMermaidGlobal();
-  wireRpToggle();
+  wireRpSpotlight();
   $('#loadSamples').addEventListener('click', loadSamples);
   $('#clearAll').addEventListener('click', clearAll);
   // Try to restore the last session from localStorage. If present this also

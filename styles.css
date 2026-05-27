@@ -592,19 +592,7 @@ code.block {
 .node.diff-invalid { box-shadow: 0 0 0 1.5px var(--db-amber) inset; background: #FFF1E0; }
 .node.diff-recommended { background: #EFEBFB; box-shadow: 0 0 0 1px #D2C9F0 inset; }
 
-/* Accept / reject decision markers on tree nodes. Rejected dims the whole
-   node and strikes the name; approved shows a green tick badge. These layer
-   on top of any diff highlight — the .appr-badge is an inline element so it
-   never disrupts the highlight background. */
-.node.appr-rejected { opacity: 0.45; }
-.node.appr-rejected .name { text-decoration: line-through; }
-.appr-badge {
-  font-size: 10px;
-  font-weight: 700;
-  margin-left: 5px;
-}
-.node.appr-approved .appr-badge { color: var(--db-green); }
-.node.appr-rejected .appr-badge { color: var(--db-red, #D62F4B); }
+/* Approval decisions live in the change-list sidebar rows only (not trees). */
 
 li.collapsed > ul { display: none; }
 
@@ -927,17 +915,53 @@ li.collapsed > ul { display: none; }
   padding: 2px 0; user-select: none; list-style-type: disclosure-closed;
 }
 
-/* Responsible-person legend strip in the Compare header */
-.rp-legend {
-  display: flex; flex-wrap: wrap; gap: 5px 16px;
-  padding: 6px 2px 2px; font-size: 11.5px;
+/* Responsible-person spotlight control in the Compare header */
+.rp-spotlight-wrap {
+  display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px;
 }
-.rp-key { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); }
-.rp-swatch {
-  width: 13px; height: 13px;
-  border-radius: 3px; border: 1px solid rgba(0,0,0,.12);
-  flex-shrink: 0;
+.rp-spotlight-wrap select {
+  font: inherit; font-size: 12px; padding: 2px 6px;
+  border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--text);
+  cursor: pointer;
 }
+
+/* Unassigned warning banner */
+.unassigned-warning {
+  background: #FFF4E0; border: 1px solid #F0D8A8; color: var(--db-amber);
+  border-radius: var(--r-md); padding: 8px 14px; margin-bottom: 8px; font-size: 13px;
+}
+
+/* Scope overrides: small summary badges in the <summary> */
+.scope-badge-add { color: var(--db-green); font-size: 11px; font-weight: 600; margin-left: 6px; }
+.scope-badge-excl { color: var(--db-red, #D62F4B); font-size: 11px; font-weight: 600; margin-left: 4px; }
+
+/* Two-input row (add + exclude) */
+.scope-inputs { display: flex; flex-direction: column; gap: 5px; }
+
+/* Override-label sub-heading */
+.scope-override-label {
+  font-size: 11px; text-transform: uppercase; letter-spacing: .04em; font-weight: 600; color: var(--muted);
+}
+
+/* Unassigned search-and-assign panel */
+.unassigned-panel { padding-top: 8px; }
+.unassigned-top {
+  display: flex; gap: 8px; align-items: center; margin-bottom: 6px;
+}
+.unassigned-search {
+  flex: 1; padding: 5px 9px; font: inherit; font-size: 12px;
+  border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--text);
+}
+.unassigned-search:focus { outline: none; border-color: var(--db-coral); }
+.unassigned-list { display: flex; flex-direction: column; gap: 5px; max-height: 340px; overflow-y: auto; }
+.assign-row {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  padding: 5px 8px; border: 1px solid var(--border); border-radius: var(--r-sm);
+  background: var(--content); font-size: 12px;
+}
+.assign-row code { color: var(--db-blue); font-size: 11.5px; min-width: 60px; }
+.assign-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.assign-project { font: inherit; font-size: 11.5px; padding: 2px 4px; border: 1px solid var(--border); border-radius: 4px; background: var(--bg); }
 
 @media (max-width: 720px) {
   .project-tiles { grid-template-columns: repeat(3, 1fr); }

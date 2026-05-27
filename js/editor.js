@@ -19,18 +19,14 @@ function el(tag, attrs = {}, children = []) {
 }
 
 // opts:
-//   editable        — render edit affordances (DnD, +/×, rename)
-//   highlights      — Map<nodeId, classSuffix> for diff colour-coding
-//   onChange        — callback(movedId) after a mutation
-//   scopeIds        — optional Set<id>. When provided, nodes NOT in the set
-//                     are skipped at render time. The underlying tree is
-//                     still the live one, so edits via DnD / inline rename
-//                     commit to it — the filter is purely visual.
-//   ccColors        — optional Map<code, {bg, edge, name}>. Tints leaf nodes
-//                     by responsible person so ownership reads as colour bands.
-//   approvals       — optional Map<code, 'approved'|'rejected'>. Marks the
-//                     matching leaf with a tick / strike so accept/reject
-//                     decisions are visible on the tree itself.
+//   editable   — render edit affordances (DnD, +/×, rename)
+//   highlights — Map<nodeId, classSuffix> for diff colour-coding
+//   onChange   — callback(movedId) after a mutation
+//   scopeIds   — optional Set<id>. When provided, nodes NOT in the set are
+//                skipped at render time. The underlying tree is still the live
+//                one, so edits via DnD / inline rename commit to it.
+//   ccColors   — optional Map<code, {bg, edge, name}>. Tints leaf nodes with
+//                the responsible-person spotlight colour.
 function renderTree(container, tree, opts = {}) {
   const {
     editable = false,
@@ -38,7 +34,6 @@ function renderTree(container, tree, opts = {}) {
     onChange = () => {},
     scopeIds = null,
     ccColors = null,
-    approvals = null,
   } = opts;
   container.innerHTML = '';
   if (!tree || tree.nodes.size === 0) {
@@ -46,7 +41,7 @@ function renderTree(container, tree, opts = {}) {
     return;
   }
 
-  const ctx = { editable, highlights, onChange, scopeIds, ccColors, approvals };
+  const ctx = { editable, highlights, onChange, scopeIds, ccColors };
   const rootUl = el('ul', { class: 'tree-root', dataset: { parentId: '__root__' } });
   for (const node of rootNodes(tree)) {
     if (scopeIds && !scopeIds.has(node.id)) continue;
@@ -105,18 +100,6 @@ function renderNode(tree, node, ctx) {
   // diff highlight
   const hl = ctx.highlights.get(node.id);
   if (hl) nodeRow.classList.add(`diff-${hl}`);
-
-  // Accept / reject decision marker (leaf nodes, matched by code).
-  if (node.kind === 'leaf' && ctx.approvals && node.code) {
-    const status = ctx.approvals.get(node.code);
-    if (status) {
-      nodeRow.classList.add(`appr-${status}`);
-      nodeRow.appendChild(el('span', {
-        class: 'appr-badge',
-        title: status === 'approved' ? 'Approved' : 'Rejected',
-      }, status === 'approved' ? '✓' : '✗'));
-    }
-  }
 
   if (ctx.editable) {
     const actions = el('span', { class: 'node-actions' }, [
